@@ -26,12 +26,12 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm"><CreditCard className="size-4" /> Plan & billing</CardTitle>
-          <CardDescription className="text-xs">Subscription billing via Stripe is planned.</CardDescription>
+          <CardDescription className="text-xs">Paid plans aren’t available yet.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 font-medium">Free <Badge variant="secondary">Current plan</Badge></div>
-            <p className="text-xs text-muted-foreground">Unlimited buy & hold analyses, comparisons and reports.</p>
+            <p className="text-xs text-muted-foreground">Unlimited Buy & Hold, BRRRR and Flip analyses, comparisons and reports.</p>
           </div>
           <Button variant="outline" disabled>Upgrade — coming soon</Button>
         </CardContent>

@@ -95,13 +95,15 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
           {selected.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setSelected([])}>Clear</Button>
           )}
-          <Button size="sm" variant={selected.length >= 2 ? "default" : "outline"} disabled={selected.length < 2} asChild={selected.length >= 2}>
-            {selected.length >= 2 ? (
+          {selected.length >= 2 ? (
+            <Button size="sm" asChild>
               <Link href={`/compare?ids=${selected.join(",")}`}><GitCompareArrows /> Compare {selected.length}</Link>
-            ) : (
-              <span><GitCompareArrows /> Select 2–{MAX_COMPARE} to compare</span>
-            )}
-          </Button>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled>
+              <GitCompareArrows /> {selected.length === 1 ? `Select ${MAX_COMPARE > 2 ? "1–3 more" : "1 more"}` : `Select 2–${MAX_COMPARE} to compare`}
+            </Button>
+          )}
         </div>
       </div>
 

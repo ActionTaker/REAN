@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useSyncExternalStore, useTransition } from "react";
 import { FlaskConical, Loader2, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -45,8 +45,12 @@ export function SampleDataCard({ count }: { count: number }) {
   );
 }
 
+const noop = () => () => {};
+
 export function ThemeCard() {
   const { theme, setTheme } = useTheme();
+  // The saved theme is only known in the browser; render "nothing selected" on the server to avoid a hydration mismatch.
+  const mounted = useSyncExternalStore(noop, () => true, () => false);
   const options = [
     { value: "light", label: "Light", icon: Sun },
     { value: "dark", label: "Dark", icon: Moon },
@@ -66,9 +70,9 @@ export function ThemeCard() {
             onClick={() => setTheme(value)}
             className={cn(
               "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs transition-colors hover:bg-muted",
-              theme === value && "border-foreground/40 bg-muted",
+              mounted && theme === value && "border-foreground/40 bg-muted",
             )}
-            aria-pressed={theme === value}
+            aria-pressed={mounted && theme === value}
           >
             <Icon className="size-4" /> {label}
           </button>

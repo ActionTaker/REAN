@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SidebarNav />
         <div className="mt-auto rounded-lg border bg-card p-3 text-xs">
           <p className="font-medium">Free plan</p>
-          <p className="mt-0.5 text-muted-foreground">Unlimited buy & hold analyses. Pro features are coming soon.</p>
+          <p className="mt-0.5 text-muted-foreground">Unlimited Buy & Hold, BRRRR and Flip analyses.</p>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
