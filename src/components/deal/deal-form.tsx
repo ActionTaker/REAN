@@ -20,7 +20,7 @@ import { SampleBadge } from "@/components/common/sample-badge";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
 import { DEAL_STATUSES, PROPERTY_TYPES, US_STATES } from "@/lib/constants";
-import { analyzeBrrrr, analyzeDeal, analyzeFlip, chartNumber, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
+import { analyzeBrrrr, analyzeDeal, analyzeFlip, chartNumber, dec, formatCurrency, type D, type InvestmentCriteria } from "@/lib/finance";
 import { formValuesToInputs } from "@/lib/property-mapping";
 import { dealSchema, type DealFormOutput, type DealFormValues } from "@/lib/validation/deal";
 import { saveDeal } from "@/app/actions/properties";
@@ -271,6 +271,52 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     </div>
   );
 
+  /** One line of the income / expense statement: + or − badge, label, input, and its monthly dollar effect. */
+  const flowRow = (
+    n: Name,
+    sign: "+" | "−",
+    label: string,
+    explain: string,
+    opts: { prefix?: string; suffix?: string; hint?: React.ReactNode; disabled?: boolean; monthly?: D | null } = {},
+  ) => (
+    <div className="grid grid-cols-[1.25rem_1fr_minmax(0,8.5rem)] items-start gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[1.25rem_1fr_minmax(0,9rem)_5.5rem]">
+      <span
+        className={cn(
+          "mt-0.5 flex size-5 items-center justify-center rounded-full text-xs font-bold",
+          sign === "+" ? "bg-positive/15 text-positive" : "bg-negative/10 text-negative",
+        )}
+        aria-hidden
+      >
+        {sign}
+      </span>
+      <div className="min-w-0">
+        <Label htmlFor={n} className={cn("text-sm leading-6", opts.disabled && "opacity-60")}>{label}</Label>
+        <p className="text-[11px] leading-snug text-muted-foreground">{explain}</p>
+      </div>
+      <div className="space-y-1">
+        <NumberInput id={n} prefix={opts.prefix} suffix={opts.suffix} disabled={opts.disabled} aria-invalid={!!err(n)} {...register(n)} />
+        {err(n) ? <p className="text-xs text-destructive">{err(n)}</p> : opts.hint ? <div className="text-[11px] leading-snug text-muted-foreground">{opts.hint}</div> : null}
+      </div>
+      <div
+        className={cn(
+          "num col-start-3 text-right text-xs sm:col-start-auto sm:pt-2 sm:text-sm",
+          sign === "+" ? "text-positive" : "text-negative",
+        )}
+      >
+        {opts.monthly && !opts.monthly.isZero() ? `${sign}${formatCurrency(opts.monthly)}/mo` : ""}
+      </div>
+    </div>
+  );
+  const totalRow = (label: string, value: D, opts: { sub?: string; tone?: boolean } = {}) => (
+    <div className="flex items-baseline justify-between gap-3 border-t-2 border-foreground/80 pt-3">
+      <span className="text-sm font-semibold">
+        {label} {opts.sub && <span className="font-normal text-muted-foreground">{opts.sub}</span>}
+      </span>
+      <span className={cn("num text-lg font-semibold", opts.tone && (value.isNegative() ? "text-negative" : "text-positive"))}>{formatCurrency(value)}/mo</span>
+    </div>
+  );
+  const expenseOf = (key: string) => rentalView.expenses.find((e) => e.key === key)?.monthly ?? null;
+
   const num = (n: Name, label: string, opts: { prefix?: string; suffix?: string; hint?: React.ReactNode; disabled?: boolean; className?: string } = {}) => (
     <div className={cn("space-y-1.5", opts.className)}>
       <Label htmlFor={n} className={cn("text-xs", opts.disabled && "opacity-50")}>{label}</Label>
@@ -479,10 +525,11 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           title="Rental income"
           description={strategy === "BRRRR" ? "Rent once the rehab is done — this pays the refinanced loan." : "Enter the total for all units."}
         >
-          <div className="grid gap-4 sm:grid-cols-3">
-            {num("monthlyRent", rentRoll ? "Monthly rent (rent roll total)" : "Monthly rent (all units)", {
+          <div className="divide-y">
+            {flowRow("monthlyRent", "+", rentRoll ? "Rent (rent roll total)" : "Rent", rollUnits > 1 ? `All ${rollUnits} units, per month.` : "What the tenant pays each month.", {
               prefix: "$",
               disabled: !!rentRoll,
+              monthly: rentalView.grossMonthlyIncome.minus(dec(liveInputs.otherMonthlyIncome as string)),
               hint: !rentRoll && rollUnits > 1 ? (
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <button type="button" className="font-medium text-foreground underline underline-offset-2" onClick={() => setRentRoll(seedRentRoll(String(values.monthlyRent ?? ""), rollUnits))}>
@@ -501,9 +548,10 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
                   </Button>
                 ) : undefined,
             })}
-            {num("otherMonthlyIncome", "Other monthly income", { prefix: "$", hint: "Laundry, parking, storage, pet fees" })}
-            {num("vacancyRate", "Vacancy rate", { suffix: "%", hint: "5–8% is common for SFR" })}
+            {flowRow("otherMonthlyIncome", "+", "Other income", "Laundry, parking, storage, pet fees.", { prefix: "$", monthly: dec(liveInputs.otherMonthlyIncome as string) })}
+            {flowRow("vacancyRate", "−", "Vacancy", "Months the unit sits empty between tenants. 5–8% is common.", { suffix: "% of rent", monthly: rentalView.monthlyVacancyLoss })}
           </div>
+          <div className="mt-1">{totalRow("Money in", rentalView.effectiveMonthlyIncome, { sub: "after vacancy" })}</div>
           {rentRoll && (
             <div className="mt-4">
               <RentRollEditor rows={rentRoll} units={rollUnits} onChange={setRentRoll} onRemove={() => setRentRoll(null)} />
@@ -533,11 +581,12 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             </div>
           </Section>
         ) : (
-        <Section title="Operating expenses" description="Fixed costs plus reserves estimated as a share of income.">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {num("propertyTaxAnnual", "Property taxes", {
+        <Section title="Operating expenses" description="What it costs to own and run the property each month, before the mortgage.">
+          <div className="divide-y">
+            {flowRow("propertyTaxAnnual", "−", "Property taxes", "Yearly tax bill.", {
               prefix: "$",
               suffix: "/yr",
+              monthly: expenseOf("propertyTax"),
               hint: (
                 <TaxHint
                   est={taxEst}
@@ -548,14 +597,35 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
                 />
               ),
             })}
-            {num("insuranceAnnual", "Insurance", { prefix: "$", suffix: "/yr", hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" /> })}
-            {num("hoaMonthly", "HOA fees", { prefix: "$", suffix: "/mo" })}
-            {num("utilitiesMonthly", "Utilities (owner-paid)", { prefix: "$", suffix: "/mo" })}
-            {num("otherMonthlyExpenses", "Other expenses", { prefix: "$", suffix: "/mo", hint: "Lawn, pest, snow, accounting" })}
-            <div className="hidden sm:block" />
-            {num("maintenancePercent", "Repairs & maintenance", { suffix: "% gross", hint: "Of gross monthly income" })}
-            {num("capexPercent", "CapEx reserve", { suffix: "% gross", hint: "Roof, HVAC, water heater…" })}
-            {num("managementPercent", "Property management", { suffix: "% coll.", hint: "Of collected rent (after vacancy)" })}
+            {flowRow("insuranceAnnual", "−", "Insurance", "Yearly landlord (dwelling) policy.", {
+              prefix: "$",
+              suffix: "/yr",
+              monthly: expenseOf("insurance"),
+              hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" />,
+            })}
+            {flowRow("hoaMonthly", "−", "HOA fees", "Homeowners association dues.", { prefix: "$", suffix: "/mo", monthly: expenseOf("hoa") })}
+            {flowRow("utilitiesMonthly", "−", "Utilities you pay", "Water, trash, gas — only what the tenant doesn't.", { prefix: "$", suffix: "/mo", monthly: expenseOf("utilities") })}
+            {flowRow("otherMonthlyExpenses", "−", "Other", "Lawn, pest control, snow, accounting.", { prefix: "$", suffix: "/mo", monthly: expenseOf("other") })}
+            {flowRow("maintenancePercent", "−", "Repairs", "Everyday fixes, set aside as a share of rent.", { suffix: "% of rent", monthly: expenseOf("maintenance") })}
+            {flowRow("capexPercent", "−", "CapEx reserve", "Big replacements later: roof, HVAC, water heater.", { suffix: "% of rent", monthly: expenseOf("capex") })}
+            {flowRow("managementPercent", "−", "Property management", "Manager's fee on rent actually collected.", { suffix: "% collected", monthly: expenseOf("management") })}
+          </div>
+          <div className="mt-1 space-y-2">
+            {totalRow("Money out", rentalView.monthlyOperatingExpenses)}
+            <div className="space-y-1.5 rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Money in − money out = net operating income</span>
+                <span className="num font-medium">{formatCurrency(rentalView.monthlyNOI)}/mo</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">− Mortgage payment{strategy === "BRRRR" ? " (after refinance)" : ""}</span>
+                <span className="num font-medium text-negative">−{formatCurrency(rentalView.monthlyMortgagePayment)}/mo</span>
+              </div>
+              <div className="flex justify-between gap-3 border-t pt-1.5 font-semibold">
+                <span>Cash flow</span>
+                <span className={cn("num", rentalView.monthlyCashFlow.isNegative() ? "text-negative" : "text-positive")}>{formatCurrency(rentalView.monthlyCashFlow)}/mo</span>
+              </div>
+            </div>
           </div>
         </Section>
         )}
