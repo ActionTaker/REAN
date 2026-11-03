@@ -19,6 +19,7 @@ export default async function PropertiesPage() {
   const rows: PropertyRow[] = analyzeRecords(records, settings).map(({ record: r, analysis: a, rating, flip, brrrr }) => ({
     id: r.id,
     strategy: r.strategy,
+    hasAdu: !!r.aduInputs && r.strategy !== "FLIP",
     name: r.name,
     isSample: r.isSample,
     status: r.status,

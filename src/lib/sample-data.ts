@@ -18,6 +18,17 @@ const common = {
   holdingPeriodYears: 30,
 } as const;
 
+const SAMPLE_JADU = {
+  type: "jadu",
+  squareFeet: "400",
+  costPerSqft: "115",
+  softCosts: "10000",
+  monthlyRent: "575",
+  buildMonths: "4",
+  capRate: "",
+  financing: { type: "cash", financedPct: "80", rate: "8.5", termYears: "30" },
+};
+
 export const SAMPLE_PROPERTIES: SampleProperty[] = [
   {
     ...common,
@@ -51,6 +62,8 @@ export const SAMPLE_PROPERTIES: SampleProperty[] = [
     managementPercent: "8",
     appreciationRate: "3",
     notes: "Updated kitchen; roof ~12 years old. Strong rental demand near Butler University.",
+    // ADU scenario: a junior unit carved out of the finished basement.
+    aduInputs: SAMPLE_JADU as unknown as Prisma.InputJsonValue,
   },
   {
     ...common,

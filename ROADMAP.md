@@ -10,7 +10,7 @@ Working list for continuous development. Each item ships as its own commit with 
 - [x] Zero console errors across all pages (fixed settings hydration mismatch)
 - [x] BRRRR/Flip money figures in compare and dashboard use real purchase financing
 - [ ] Settings: default strategy and BRRRR/Flip defaults (hard money, refinance, selling costs)
-- [ ] Strategy filter on My Properties
+- [x] Strategy filter on My Properties (+ADU badge)
 
 ## Next
 - [ ] Rent roll for 2–4 unit properties (rent per unit)
@@ -30,3 +30,4 @@ Working list for continuous development. Each item ships as its own commit with 
 - Rehab scope estimator; insurance, closing cost and property tax estimates
 - Max offer price by goals; stress tests
 - BRRRR and Flip strategies
+- ADU scenario (Buy & Hold / BRRRR): type presets × state cost index, rent suggestion, cash or loan, value added at cap rate, equity created, break-even $/sq ft

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SampleBadge } from "@/components/common/sample-badge";
+import { STRATEGIES } from "@/lib/strategy";
 import { StrategyBadge } from "@/components/common/strategy-badge";
 import { StatusBadge } from "@/components/common/status-badge";
 import { RatingBadge } from "@/components/common/rating-badge";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 export interface PropertyRow {
   id: string;
   strategy: string;
+  hasAdu: boolean;
   name: string;
   isSample: boolean;
   status: string;
@@ -53,6 +55,7 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [source, setSource] = useState("ALL");
+  const [strategy, setStrategy] = useState("ALL");
   const [sort, setSort] = useState<SortState>({ key: "updated", dir: -1 });
   const onSort = (k: SortKey) => setSort((s) => ({ key: k, dir: s.key === k ? ((s.dir * -1) as 1 | -1) : -1 }));
   const [selected, setSelected] = useState<string[]>([]);
@@ -61,10 +64,11 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
     const q = query.trim().toLowerCase();
     return rows
       .filter((r) => (status === "ALL" ? true : r.status === status))
+      .filter((r) => (strategy === "ALL" ? true : r.strategy === strategy))
       .filter((r) => (source === "ALL" ? true : source === "SAMPLE" ? r.isSample : !r.isSample))
       .filter((r) => !q || `${r.name} ${r.location} ${r.type}`.toLowerCase().includes(q))
       .sort((a, b) => (a.sort[sort.key] - b.sort[sort.key]) * sort.dir);
-  }, [rows, query, status, source, sort]);
+  }, [rows, query, status, strategy, source, sort]);
 
   const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX_COMPARE ? s : [...s, id]));
@@ -76,6 +80,13 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, city, type…" className="pl-8" />
         </div>
+        <Select value={strategy} onValueChange={setStrategy}>
+          <SelectTrigger className="sm:w-40" aria-label="Filter by strategy"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All strategies</SelectItem>
+            {STRATEGIES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="sm:w-44" aria-label="Filter by status"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -141,6 +152,7 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
                     <div className="flex items-center gap-2">
                       <Link href={`/properties/${r.id}`} className="font-medium hover:underline">{r.name}</Link>
                       <StrategyBadge strategy={r.strategy} />
+                      {r.hasAdu && <span className="rounded-md border px-1.5 py-px text-[10px] font-medium text-muted-foreground" title="Has an ADU scenario">+ADU</span>}
                       {r.isSample && <SampleBadge />}
                     </div>
                     <div className="text-xs text-muted-foreground">

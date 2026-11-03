@@ -37,6 +37,10 @@ The Deal Analyzer can fill a deal in from an address using [RentCast](https://ww
 
 Setup: put `RENTCAST_API_KEY=...` in `.env`. Lookups are cached per address for 30 days in `PropertyDataCache`. When a deal is saved, the server re-reads the lookup from that cache and stores it on the deal (`Property.marketData`), so the detail page and report show where the numbers came from. To try the feature without a key, set `PROPERTY_DATA_PROVIDER=demo`. The numbers are synthetic and clearly labelled as such.
 
+## ADU scenario
+
+Rentals (Buy & Hold, BRRRR) can add an accessory dwelling unit (`Property.aduInputs`, engine in `src/lib/finance/adu.ts`). Pick detached, attached, garage conversion or junior ADU. Each preset sets a U.S.-average $/sq ft (scaled by the state construction cost index) plus soft costs, and every value is editable. ADU rent defaults to the main unit's rent per sq ft +10%. The ADU's NOI uses the deal's vacancy and %-of-rent expenses, plus insurance (0.35% of construction cost a year) and property tax on the value added. **Value added** = 12 × NOI ÷ cap rate: the deal's own cap rate clamped to 5–12%, or one you enter. The formula is solved so that the tax on the added value is included. **Equity created** = value added − total build cost. The **break-even build cost** is the $/sq ft at which equity created is $0. The scenario is shown beside the deal; it doesn't change the deal's own numbers.
+
 ## Strategies: Buy & Hold, BRRRR, Flip
 
 Each deal has a strategy, chosen at the top of the analyzer (`Property.strategy`). BRRRR and Flip inputs and goals are stored in `Property.strategyInputs`.
