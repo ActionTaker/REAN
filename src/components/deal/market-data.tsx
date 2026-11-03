@@ -122,8 +122,9 @@ export function MarketDataSummary({
         </ul>
       )}
 
-      {data.value && data.value.comparables.length > 0 && <CompTable title="Comparable sales" comps={data.value.comparables} unit="" />}
-      {data.rent && data.rent.comparables.length > 0 && <CompTable title="Comparable rentals" comps={data.rent.comparables} unit="/mo" />}
+      {/* With the Comps buttons above, the full panels replace these lists; saved snapshots (no buttons) still show them. */}
+      {!onOpenComps && data.value && data.value.comparables.length > 0 && <CompTable title="Comparable sales" comps={data.value.comparables} unit="" />}
+      {!onOpenComps && data.rent && data.rent.comparables.length > 0 && <CompTable title="Comparable rentals" comps={data.rent.comparables} unit="/mo" />}
 
       <p className="text-[11px] text-muted-foreground">
         Automated estimates from public records and listings. They can be wrong. Check them against local comps, an appraisal, and a property manager&apos;s rent opinion.
