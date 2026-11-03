@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Info, ListChecks, Loader2, Save } from "lucide-react";
+import { Calculator, CheckCircle2, Circle, Info, ListChecks, Loader2, Save } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,10 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
   const sEngine = useMemo(() => toEngineInputs(sSaved), [sSaved]);
   const brrrr = useMemo(() => (strategy === "BRRRR" ? analyzeBrrrr(liveInputs, sEngine) : undefined), [strategy, liveInputs, sEngine]);
   const flip = useMemo(() => (strategy === "FLIP" ? analyzeFlip(liveInputs, sEngine) : undefined), [strategy, liveInputs, sEngine]);
+  // Show results only once the numbers that drive them exist (otherwise a blank form reads as "negative cash flow").
+  const hasBasics =
+    dec(liveInputs.purchasePrice as string).gt(0) &&
+    (strategy === "FLIP" ? dec(liveInputs.afterRepairValue as string).gt(0) || !!sSaved.flip.salePrice : dec(liveInputs.monthlyRent as string).gt(0));
   const setStrategyInputs = (next: SavedStrategyInputs) => setValue("strategyInputs", next as never, { shouldDirty: true });
   const { checks, rating } = useMemo(() => {
     if (strategy === "BUY_HOLD") return { checks: holdChecks, rating: holdRating };
@@ -549,6 +553,32 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           </div>
         </div>
 
+        {!hasBasics ? (
+          <div className="rounded-xl border border-dashed bg-card p-6 text-center shadow-xs">
+            <Calculator className="mx-auto size-6 text-muted-foreground" />
+            <p className="mt-2 text-sm font-medium">Results appear as you type</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {strategy === "FLIP"
+                ? "Enter a purchase price and an ARV (or sale price) to see profit and ROI."
+                : "Enter a purchase price and monthly rent — or look up an address above to fill both."}
+            </p>
+            <ul className="mx-auto mt-3 w-fit space-y-1 text-left text-xs">
+              <li className="flex items-center gap-2">
+                {dec(liveInputs.purchasePrice as string).gt(0) ? <CheckCircle2 className="size-3.5 text-positive" /> : <Circle className="size-3.5 text-muted-foreground" />}
+                Purchase price
+              </li>
+              <li className="flex items-center gap-2">
+                {(strategy === "FLIP" ? dec(liveInputs.afterRepairValue as string) : dec(liveInputs.monthlyRent as string)).gt(0) ? (
+                  <CheckCircle2 className="size-3.5 text-positive" />
+                ) : (
+                  <Circle className="size-3.5 text-muted-foreground" />
+                )}
+                {strategy === "FLIP" ? "After-repair value" : "Monthly rent"}
+              </li>
+            </ul>
+          </div>
+        ) : (
+          <>
         <CriteriaPanel
           rating={rating}
           checks={checks}
@@ -616,6 +646,8 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               <FlipStatement f={flip} input={liveInputs} />
             </TabsContent>
           </Tabs>
+        )}
+          </>
         )}
         <Disclaimer />
       </aside>
