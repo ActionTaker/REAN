@@ -19,12 +19,14 @@ import { SampleBadge } from "@/components/common/sample-badge";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
 import { DEAL_STATUSES, PROPERTY_TYPES, US_STATES } from "@/lib/constants";
-import { analyzeDeal, chartNumber, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
+import { analyzeDeal, chartNumber, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
 import { formValuesToInputs } from "@/lib/property-mapping";
 import { dealSchema, type DealFormOutput, type DealFormValues } from "@/lib/validation/deal";
 import { saveDeal } from "@/app/actions/properties";
 import { RehabEstimator } from "./rehab-estimator";
 import { DealTools } from "./deal-tools";
+import { CompsArvSheet } from "./comps-arv-sheet";
+import { emptyArvAnalysis, type ArvAnalysis } from "@/lib/property-data/arv-analysis";
 import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
 import { buildRehabPlan, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import { estimateClosingCosts, estimateInsurance, type CostEstimate } from "@/lib/estimates/costs";
@@ -42,9 +44,11 @@ interface Props {
   defaultValues: DealFormValues;
   criteria: InvestmentCriteria;
   isSample?: boolean;
+  /** Market data saved with this deal (edit page), so the Comps & ARV panel opens without a new lookup. */
+  initialMarketData?: PropertyLookup | null;
 }
 
-export function DealForm({ propertyId, defaultValues, criteria, isSample }: Props) {
+export function DealForm({ propertyId, defaultValues, criteria, isSample, initialMarketData = null }: Props) {
   const router = useRouter();
   const [saving, startSaving] = useTransition();
   const form = useForm<DealFormValues, unknown, DealFormOutput>({
@@ -65,6 +69,24 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample }: Prop
   const { checks, rating } = useMemo(() => rateAgainstGoals(analysis, offerGoals), [analysis, offerGoals]);
   const isCash = !!values.isCashPurchase;
   const [lookupAddress, setLookupAddress] = useState<string | null>(null);
+
+  // ── Comps & ARV panel ──
+  const [marketData, setMarketData] = useState<PropertyLookup | null>(initialMarketData);
+  const [compsOpen, setCompsOpen] = useState(false);
+  const arvAnalysis = (values.arvAnalysis as ArvAnalysis | null) ?? emptyArvAnalysis();
+  const subjectNum = (v: unknown) => {
+    const n = Number(String(v ?? "").replace(/[,\s]/g, ""));
+    return String(v ?? "").trim() !== "" && Number.isFinite(n) ? n : null;
+  };
+  const compSubject = useMemo(
+    () => ({
+      squareFeet: subjectNum(values.squareFeet) ?? marketData?.facts.squareFeet ?? null,
+      bedrooms: subjectNum(values.bedrooms) ?? marketData?.facts.bedrooms ?? null,
+      bathrooms: String(values.bathrooms ?? "").trim() || (marketData?.facts.bathrooms != null ? String(marketData.facts.bathrooms) : null),
+      yearBuilt: subjectNum(values.yearBuilt) ?? marketData?.facts.yearBuilt ?? null,
+    }),
+    [values.squareFeet, values.bedrooms, values.bathrooms, values.yearBuilt, marketData],
+  );
 
   // ── Estimates that pre-fill fields until the user types their own number ──
   const sqftNum = parseInt(String(values.squareFeet ?? ""), 10) || null;
@@ -214,6 +236,11 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample }: Prop
             zip: defaultValues.zip || null,
           })}
           onApply={applyLookup}
+          onLookup={(d, address) => {
+            setMarketData(d);
+            setLookupAddress(address); // so the snapshot is saved with the deal
+          }}
+          onOpenComps={() => setCompsOpen(true)}
           onAddressSelected={(sug) => {
             const opts = { shouldDirty: true } as const;
             if (!getValues("name")) setValue("name", sug.line1, opts);
@@ -261,7 +288,16 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample }: Prop
             })}
             {num("afterRepairValue", "After-repair value", {
               prefix: "$",
-              hint: analysis.equityCreated ? "Calculation shown below" : "Optional — projections start here",
+              hint:
+                (marketData?.value?.comparables.length ?? 0) > 0 ? (
+                  <button type="button" onClick={() => setCompsOpen(true)} className="font-medium text-foreground underline underline-offset-2">
+                    Review comps & ARV
+                  </button>
+                ) : analysis.equityCreated ? (
+                  "Calculation shown below"
+                ) : (
+                  "Optional — look up the address for comps"
+                ),
             })}
           </div>
           <RehabEstimator plan={rehabPlan} ctx={rehabCtx} onChange={setRehabPlan} />
@@ -322,6 +358,30 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample }: Prop
             {num("holdingPeriodYears", "Hold period", { suffix: "yrs" })}
           </div>
         </Section>
+
+        {marketData && (
+          <CompsArvSheet
+            open={compsOpen}
+            onOpenChange={setCompsOpen}
+            lookup={marketData}
+            subject={compSubject}
+            subjectInputs={{
+              squareFeet: String(values.squareFeet ?? ""),
+              bedrooms: String(values.bedrooms ?? ""),
+              bathrooms: String(values.bathrooms ?? ""),
+              yearBuilt: String(values.yearBuilt ?? ""),
+            }}
+            onSubjectChange={(field, v) => setValue(field, v as never, { shouldDirty: true, shouldValidate: true })}
+            analysis={arvAnalysis}
+            onAnalysisChange={(a) => setValue("arvAnalysis", a as never, { shouldDirty: true })}
+            currentArv={String(values.afterRepairValue ?? "")}
+            onUseArv={(v, method) => {
+              setValue("afterRepairValue", v as never, { shouldDirty: true, shouldValidate: true });
+              setValue("arvAnalysis", { ...arvAnalysis, method } as never, { shouldDirty: true });
+              toast.success(`ARV set to ${formatCurrency(dec(v))}`);
+            }}
+          />
+        )}
 
         <Section title="Notes">
           <Textarea rows={3} placeholder="Condition, comps, rent sources, questions for the agent…" {...register("notes")} />

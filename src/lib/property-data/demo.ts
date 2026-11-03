@@ -1,6 +1,7 @@
 import "server-only";
 import { D, dec } from "@/lib/finance/decimal";
-import { estimateArv, totalRent } from "./estimates";
+import { totalRent } from "./estimates";
+import { lookupArv } from "./comps-arv";
 import { normalizeAddressKey, type Comparable, type PropertyLookup } from "./types";
 
 /**
@@ -45,7 +46,7 @@ export function demoLookup(address: string): PropertyLookup {
 
   const valueComps = comps(ppsf, "sale");
   const rentComps = comps(rentPerUnit.div(sqft), "rent");
-  const arv = estimateArv({ valueEstimate: value, valueHigh: value.times(1.1), subjectSquareFeet: sqft, comparables: valueComps });
+  const arv = lookupArv({ squareFeet: sqft, bedrooms: 3, bathrooms: 2, yearBuilt: null }, { estimate: value.toString(), comparables: valueComps });
   const parts = address.split(",").map((s) => s.trim());
   const stateZip = parts[2]?.split(/\s+/) ?? [];
 
@@ -69,7 +70,7 @@ export function demoLookup(address: string): PropertyLookup {
     propertyTaxAnnual: { amount: value.times("0.012").toDecimalPlaces(0).toString(), year: 2025 },
     hoaMonthly: null,
     value: { estimate: value.toString(), low: value.times(0.92).toDecimalPlaces(0).toString(), high: value.times(1.1).toDecimalPlaces(0).toString(), comparables: valueComps },
-    arv: { estimate: arv.estimate.toString(), method: arv.method, pricePerSqft: arv.pricePerSqft?.toFixed(2) ?? null, compsUsed: arv.compsUsed },
+    arv,
     rent: {
       perUnit: rentPerUnit.toString(),
       low: rentPerUnit.times(0.9).toDecimalPlaces(0).toString(),

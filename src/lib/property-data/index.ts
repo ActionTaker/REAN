@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { demoLookup } from "./demo";
 import { rentcastLookup } from "./rentcast";
-import { estimateArv } from "./estimates";
+import { lookupArv } from "./comps-arv";
 import { LookupError, normalizeAddressKey, type PropertyLookup } from "./types";
 
 export * from "./types";
@@ -10,13 +10,7 @@ export * from "./types";
 /** ARV is derived from the stored comps, so recompute it — keeps cached lookups in step with the current method. */
 function withFreshArv(d: PropertyLookup): PropertyLookup {
   if (!d.value) return d;
-  const a = estimateArv({
-    valueEstimate: d.value.estimate,
-    valueHigh: d.value.high,
-    subjectSquareFeet: d.facts.squareFeet,
-    comparables: d.value.comparables.map((c) => ({ price: c.price, squareFeet: c.squareFeet })),
-  });
-  return { ...d, arv: { estimate: a.estimate.toString(), method: a.method, pricePerSqft: a.pricePerSqft?.toFixed(2) ?? null, compsUsed: a.compsUsed } };
+  return { ...d, arv: lookupArv(d.facts, d.value) };
 }
 
 const CACHE_DAYS = 30;

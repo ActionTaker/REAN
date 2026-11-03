@@ -64,6 +64,7 @@ export async function duplicateProperty(id: string): Promise<string | null> {
       marketData: (rest.marketData ?? undefined) as Prisma.InputJsonValue | undefined,
       rehabPlan: (rest.rehabPlan ?? undefined) as Prisma.InputJsonValue | undefined,
       offerGoals: (rest.offerGoals ?? undefined) as Prisma.InputJsonValue | undefined,
+      arvAnalysis: (rest.arvAnalysis ?? undefined) as Prisma.InputJsonValue | undefined,
       name: `${src.name} (copy)`,
       isSample: false,
       status: "ANALYZING",

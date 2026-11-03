@@ -23,6 +23,7 @@ export function newDealDefaults(s: SettingsRecord): DealFormValues {
     afterRepairValue: "",
     rehabPlan: null,
     offerGoals: null,
+    arvAnalysis: null,
     isCashPurchase: false,
     downPaymentPercent: s.defaultDownPaymentPercent,
     interestRate: s.defaultInterestRate,

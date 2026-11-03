@@ -3,6 +3,7 @@ import type { DealInputs } from "@/lib/finance";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import type { RehabPlan } from "@/lib/estimates/rehab";
 import type { OfferGoals } from "@/lib/offer-goals";
+import type { ArvAnalysis } from "@/lib/property-data/arv-analysis";
 import type { DealFormOutput, DealFormValues } from "@/lib/validation/deal";
 
 /** Client-safe, serializable property. Decimal columns are carried as strings. */
@@ -31,6 +32,7 @@ export interface PropertyRecord {
   marketData: PropertyLookup | null;
   rehabPlan: RehabPlan | null;
   offerGoals: OfferGoals | null;
+  arvAnalysis: ArvAnalysis | null;
   isCashPurchase: boolean;
   downPaymentPercent: string;
   interestRate: string;
@@ -127,6 +129,7 @@ export function recordToFormValues(r: PropertyRecord): DealFormValues {
     afterRepairValue: r.afterRepairValue ? trimZeros(r.afterRepairValue) : "",
     rehabPlan: r.rehabPlan,
     offerGoals: r.offerGoals,
+    arvAnalysis: r.arvAnalysis,
     isCashPurchase: r.isCashPurchase,
     loanTermYears: str(r.loanTermYears),
     holdingPeriodYears: str(r.holdingPeriodYears),
@@ -183,6 +186,7 @@ export function formOutputToData(o: DealFormOutput) {
     // Prisma.DbNull clears the column when the user removes the plan.
     rehabPlan: o.rehabPlan ? (o.rehabPlan as Prisma.InputJsonValue) : Prisma.DbNull,
     offerGoals: o.offerGoals ? (o.offerGoals as Prisma.InputJsonValue) : Prisma.DbNull,
+    arvAnalysis: o.arvAnalysis ? (o.arvAnalysis as Prisma.InputJsonValue) : Prisma.DbNull,
     isCashPurchase: o.isCashPurchase,
     loanTermYears: parseInt(o.loanTermYears, 10),
     holdingPeriodYears: parseInt(o.holdingPeriodYears, 10),

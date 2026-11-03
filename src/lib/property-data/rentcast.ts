@@ -1,7 +1,8 @@
 import "server-only";
 import type { PropertyTypeValue } from "@/lib/constants";
 import { dec } from "@/lib/finance/decimal";
-import { estimateArv, totalRent } from "./estimates";
+import { totalRent } from "./estimates";
+import { lookupArv } from "./comps-arv";
 import { LookupError, normalizeAddressKey, type Comparable, type PropertyLookup } from "./types";
 
 const BASE = "https://api.rentcast.io/v1";
@@ -18,6 +19,8 @@ interface RcProperty {
   bathrooms?: number;
   squareFootage?: number;
   yearBuilt?: number;
+  latitude?: number;
+  longitude?: number;
   lastSalePrice?: number;
   lastSaleDate?: string;
   hoa?: { fee?: number };
@@ -25,7 +28,13 @@ interface RcProperty {
   features?: { unitCount?: number };
 }
 interface RcComp {
+  id?: string;
   formattedAddress?: string;
+  yearBuilt?: number;
+  latitude?: number;
+  longitude?: number;
+  daysOnMarket?: number;
+  listingType?: string;
   price?: number;
   bedrooms?: number;
   bathrooms?: number;
@@ -77,6 +86,7 @@ export function mapPropertyType(t: string | undefined, units: number): PropertyT
 }
 
 const toComp = (c: RcComp): Comparable => ({
+  id: c.id ?? c.formattedAddress,
   address: c.formattedAddress ?? "Unknown address",
   price: dec(c.price ?? 0).toString(),
   bedrooms: c.bedrooms ?? null,
@@ -86,6 +96,13 @@ const toComp = (c: RcComp): Comparable => ({
   status: c.status ?? null,
   date: c.removedDate ?? c.listedDate ?? null,
   correlation: c.correlation ?? null,
+  yearBuilt: c.yearBuilt ?? null,
+  latitude: c.latitude ?? null,
+  longitude: c.longitude ?? null,
+  listedDate: c.listedDate ?? null,
+  removedDate: c.removedDate ?? null,
+  daysOnMarket: c.daysOnMarket ?? null,
+  listingType: c.listingType ?? null,
 });
 
 export async function rentcastLookup(address: string, apiKey: string): Promise<PropertyLookup> {
@@ -122,14 +139,6 @@ export async function rentcastLookup(address: string, apiKey: string): Promise<P
 
   const valueComps = (value?.comparables ?? []).map(toComp);
   const rentComps = (rent?.comparables ?? []).map(toComp);
-  const arv = value?.price
-    ? estimateArv({
-        valueEstimate: value.price,
-        valueHigh: value.priceRangeHigh ?? null,
-        subjectSquareFeet: subject.squareFootage ?? null,
-        comparables: valueComps.map((c) => ({ price: c.price, squareFeet: c.squareFeet })),
-      })
-    : null;
   if (units > 1 && rent?.rent) {
     warnings.push(`Rent estimate is per unit and was multiplied by ${units} units — confirm the actual unit mix and leases.`);
   }
@@ -156,6 +165,8 @@ export async function rentcastLookup(address: string, apiKey: string): Promise<P
       yearBuilt: subject.yearBuilt ?? null,
       lastSalePrice: subject.lastSalePrice ? dec(subject.lastSalePrice).toString() : null,
       lastSaleDate: subject.lastSaleDate ?? null,
+      latitude: subject.latitude ?? null,
+      longitude: subject.longitude ?? null,
     },
     propertyTaxAnnual: latestTax ? { amount: dec(latestTax.total!).toString(), year: latestTax.year! } : null,
     hoaMonthly: record?.hoa?.fee ? dec(record.hoa.fee).toString() : null,
@@ -167,8 +178,11 @@ export async function rentcastLookup(address: string, apiKey: string): Promise<P
           comparables: valueComps,
         }
       : null,
-    arv: arv
-      ? { estimate: arv.estimate.toString(), method: arv.method, pricePerSqft: arv.pricePerSqft?.toFixed(2) ?? null, compsUsed: arv.compsUsed }
+    arv: value?.price
+      ? lookupArv(
+          { squareFeet: subject.squareFootage ?? null, bedrooms: subject.bedrooms ?? null, bathrooms: subject.bathrooms ?? null, yearBuilt: subject.yearBuilt ?? null },
+          { estimate: dec(value.price).toString(), comparables: valueComps },
+        )
       : null,
     rent: rent?.rent
       ? {

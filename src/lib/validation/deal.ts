@@ -61,6 +61,25 @@ export const offerGoalsSchema = z.object({
   seventy: goal,
 });
 
+/** Comps & ARV tool state saved with a deal. */
+export const arvAnalysisSchema = z.object({
+  choices: z
+    .record(
+      z.string().max(300),
+      z.object({ included: z.boolean(), condition: z.enum(["renovated", "average", "dated"]).nullable() }),
+    )
+    .refine((r) => Object.keys(r).length <= 100, "Too many comps"),
+  settings: z.object({
+    sizeAdjPct: z.string().max(10),
+    bedAdjPct: z.string().max(10),
+    bathAdjPct: z.string().max(10),
+    agePctPerYear: z.string().max(10),
+    ageCapPct: z.string().max(10),
+    excludeActive: z.boolean(),
+  }),
+  method: z.enum(["recommended", "adjustedAverage", "ppsf", "avm", "manual"]).nullable(),
+});
+
 export const dealSchema = z
   .object({
     name: z.string().trim().min(1, "Give this deal a name").max(120),
@@ -82,6 +101,7 @@ export const dealSchema = z
     rehabCosts: money("Rehab costs"),
     afterRepairValue: z.union([z.literal(""), money("After-repair value")]).optional().default(""),
     offerGoals: offerGoalsSchema.nullable().optional().default(null),
+    arvAnalysis: arvAnalysisSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),

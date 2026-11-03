@@ -2,6 +2,8 @@ import type { PropertyTypeValue } from "@/lib/constants";
 
 /** Serializable (money as strings) result of an address lookup. */
 export interface Comparable {
+  /** Stable id for saving per-comp choices (provider id, else address). Older cached lookups lack it. */
+  id?: string;
   address: string;
   price: string;
   bedrooms: number | null;
@@ -12,6 +14,15 @@ export interface Comparable {
   date: string | null;
   /** Provider's similarity score, 0–1. */
   correlation: number | null;
+  // Added later — absent on lookups cached before then.
+  yearBuilt?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  /** "Active" = still listed (asking price); "Inactive" = taken off market, usually sold. */
+  listedDate?: string | null;
+  removedDate?: string | null;
+  daysOnMarket?: number | null;
+  listingType?: string | null;
 }
 
 export interface PropertyLookup {
@@ -30,6 +41,8 @@ export interface PropertyLookup {
     yearBuilt: number | null;
     lastSalePrice: string | null;
     lastSaleDate: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   propertyTaxAnnual: { amount: string; year: number } | null;
   hoaMonthly: string | null;

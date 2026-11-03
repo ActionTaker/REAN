@@ -7,6 +7,7 @@ import { sampleRowsFor } from "@/lib/sample-data";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import type { RehabPlan } from "@/lib/estimates/rehab";
 import type { OfferGoals } from "@/lib/offer-goals";
+import type { ArvAnalysis } from "@/lib/property-data/arv-analysis";
 
 const s = (v: { toString(): string } | null) => (v === null ? null : v.toString());
 
@@ -36,6 +37,7 @@ function toRecord(p: Property): PropertyRecord {
     marketData: (p.marketData as PropertyLookup | null) ?? null,
     rehabPlan: (p.rehabPlan as RehabPlan | null) ?? null,
     offerGoals: (p.offerGoals as OfferGoals | null) ?? null,
+    arvAnalysis: (p.arvAnalysis as ArvAnalysis | null) ?? null,
     isCashPurchase: p.isCashPurchase,
     downPaymentPercent: p.downPaymentPercent.toString(),
     interestRate: p.interestRate.toString(),

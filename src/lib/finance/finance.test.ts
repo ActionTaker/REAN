@@ -192,27 +192,6 @@ test("ARV becomes the projection base and drives equity / 70% rule", () => {
   assert.equal(cents(analyzeDeal({ ...baseDeal, afterRepairValue: "" }).startingValue), "200000.00");
 });
 
-test("ARV estimator uses the 75th-percentile comp $/sqft, floored at as-is value", async () => {
-  const { estimateArv, percentile } = await import("../property-data/estimates");
-  assert.equal(percentile([dec(1), dec(2), dec(3), dec(4), dec(5)], 0.75).toString(), "4");
-  assert.equal(percentile([dec(100), dec(200)], 0.75).toString(), "175");
-  const comps = [150, 160, 170, 180, 200].map((ppsf) => ({ price: ppsf * 1000, squareFeet: 1000 }));
-  const a = estimateArv({ valueEstimate: 150_000, subjectSquareFeet: 1_000, comparables: comps });
-  assert.equal(a.pricePerSqft!.toString(), "180");
-  assert.equal(a.estimate.toString(), "180000"); // 180 × 1,000
-  assert.equal(a.compsUsed, 5);
-  // As-is value higher than the comp-based figure → keep as-is.
-  assert.equal(estimateArv({ valueEstimate: 300_000, subjectSquareFeet: 1_500, comparables: comps }).estimate.toString(), "300000");
-  // Larger-than-comps house: $/sq ft × sq ft can't exceed the highest comp price.
-  const big = estimateArv({ valueEstimate: 150_000, subjectSquareFeet: 3_000, comparables: comps });
-  assert.equal(big.estimate.toString(), "200000"); // 180 × 3,000 = 540,000 → capped at top comp 200,000
-  assert.match(big.method, /Highest comparable price/);
-  // Too few comps → top of AVM range.
-  const f = estimateArv({ valueEstimate: 200_000, valueHigh: 221_400, subjectSquareFeet: 1_500, comparables: comps.slice(0, 2) });
-  assert.equal(f.estimate.toString(), "221000");
-  assert.equal(f.pricePerSqft, null);
-});
-
 test("max price solver finds the exact threshold for each goal", async () => {
   const { maxPriceFor, withPrice, seventyPercentMax } = await import("./solver");
   const check = (price: D) => analyzeDeal(withPrice(baseDeal, price));

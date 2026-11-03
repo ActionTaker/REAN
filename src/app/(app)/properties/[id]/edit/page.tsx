@@ -22,7 +22,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         </Link>
         <PageHeader className="mt-2" title={`Edit · ${property.name}`} description="Adjust any assumption and see the impact before saving." />
       </div>
-      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} isSample={property.isSample} />
+      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} isSample={property.isSample} initialMarketData={property.marketData} />
     </div>
   );
 }
