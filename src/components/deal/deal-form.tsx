@@ -686,7 +686,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             <TabsTrigger value="longterm">Long-term</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="mt-3">
-            <KeyMetrics a={analysis} columns={2} />
+            <KeyMetrics a={analysis} columns={2} checks={holdChecks} />
           </TabsContent>
           <TabsContent value="cashflow" className="mt-3 rounded-xl border bg-card p-2 shadow-xs">
             <CashFlowStatement a={analysis} />

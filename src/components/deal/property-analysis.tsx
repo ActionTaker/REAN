@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Loader2, Save } from "lucide-react";
+import { ChevronRight, Loader2, Save } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { SectionNav } from "./section-nav";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
@@ -34,9 +36,9 @@ import {
   YearOneReturn,
 } from "./analysis-panels";
 
-function Panel({ title, description, children, className }: { title: string; description?: string; children: React.ReactNode; className?: string }) {
+function Panel({ id, title, description, children, className }: { id?: string; title: string; description?: string; children: React.ReactNode; className?: string }) {
   return (
-    <Card className={className}>
+    <Card id={id} className={cn(id && "scroll-mt-28", className)}>
       <CardHeader>
         <CardTitle className="text-sm">{title}</CardTitle>
         {description && <CardDescription className="text-xs">{description}</CardDescription>}
@@ -58,7 +60,7 @@ export function PropertyAnalysis({
   /** Report layout: Acquisition & financing → Cash flow statement → Year-1 return (also the printed order). */
   acquisitionFirst?: boolean;
 }) {
-  if (record.strategy && record.strategy !== "BUY_HOLD") return <StrategyPropertyAnalysis record={record} criteria={criteria} />;
+  if (record.strategy && record.strategy !== "BUY_HOLD") return <StrategyPropertyAnalysis record={record} criteria={criteria} showNav={!acquisitionFirst} />;
   return <BuyHoldAnalysis record={record} criteria={criteria} acquisitionFirst={acquisitionFirst} tax={tax} />;
 }
 
@@ -85,20 +87,32 @@ function BuyHoldAnalysis({
       <ArvBreakdown a={a} className="mt-3" />
     </>
   );
+  const nav = [
+    { id: "overview", label: "Overview" },
+    { id: "cash-flow", label: "Cash flow" },
+    { id: "returns", label: "Ratios & tax" },
+    { id: "offer", label: "Max offer" },
+    ...(record.aduInputs ? [{ id: "adu", label: "ADU" }] : []),
+    ...(record.marketData || record.otherEstimates?.length ? [{ id: "market", label: "Market data" }] : []),
+    { id: "projection", label: "Projection" },
+    { id: "details", label: "Loan & formulas" },
+  ];
   return (
     <div className="space-y-5">
+      {!acquisitionFirst && <SectionNav items={nav} />}
+      <div id="overview" className="scroll-mt-28" />
       <CriteriaPanel
         rating={rating}
         checks={checks}
         cashFlowNote={!cashFlowRequired(goals) && a.monthlyCashFlow.isNegative()}
         footer="Goals for this deal are set under Max offer price below."
       />
-      <KeyMetrics a={a} columns={6} />
+      <KeyMetrics a={a} columns={6} checks={checks} />
 
       {acquisitionFirst ? (
         // DOM order = reading/print order; on wide screens the cash flow statement spans both rows on the right.
         <div className="grid gap-5 lg:grid-cols-5">
-          <Panel title="Acquisition & financing" className="lg:col-span-2 print:break-inside-avoid">
+          <Panel id="cash-flow" title="Acquisition & financing" className="lg:col-span-2 print:break-inside-avoid">
             {acquisition}
           </Panel>
           <Panel title="Cash flow statement" description="Year 1, at the assumptions entered" className="lg:col-span-3 lg:row-span-2 print:break-inside-avoid">
@@ -110,7 +124,7 @@ function BuyHoldAnalysis({
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-5">
-          <Panel title="Cash flow statement" description="Year 1, at the assumptions entered" className="lg:col-span-3 print:break-inside-avoid">
+          <Panel id="cash-flow" title="Cash flow statement" description="Year 1, at the assumptions entered" className="lg:col-span-3 print:break-inside-avoid">
             <CashFlowStatement a={a} />
           </Panel>
           <div className="space-y-5 lg:col-span-2">
@@ -124,17 +138,17 @@ function BuyHoldAnalysis({
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-5">
-        <div className="space-y-5 lg:col-span-2">
-          <Panel title="Investment ratios" description="Screening metrics and rules of thumb" className="print:break-inside-avoid">
-            <RatioSummary a={a} />
-          </Panel>
-          <Panel title="After-tax cash flow" description="Year 1, with depreciation and the interest deduction" className="print:break-inside-avoid">
-            <AfterTaxSummary a={a} tax={tax} />
-          </Panel>
-        </div>
-        <Panel title="Assumptions used" description="Every input behind these numbers" className="lg:col-span-3 print:break-inside-avoid">
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+      <div id="returns" className="grid scroll-mt-28 gap-5 lg:grid-cols-2">
+        <Panel title="Investment ratios" description="Screening metrics and rules of thumb" className="print:break-inside-avoid">
+          <RatioSummary a={a} />
+        </Panel>
+        <Panel title="After-tax cash flow" description="Year 1, with depreciation and the interest deduction" className="print:break-inside-avoid">
+          <AfterTaxSummary a={a} tax={tax} />
+        </Panel>
+      </div>
+      <div>
+        <Panel title="Assumptions used" description="Every input behind these numbers" className="print:break-inside-avoid">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4 lg:grid-cols-6">
             {[
               ["Monthly rent", formatCurrency(dec(record.monthlyRent))],
               ["Other income", `${formatCurrency(dec(record.otherMonthlyIncome))}/mo`],
@@ -180,12 +194,17 @@ function BuyHoldAnalysis({
         </Panel>
       </div>
 
-      <OfferTools record={record} goals={goals} savedGoals={savedGoals} onGoalsChange={setGoals} />
+      <div id="offer" className="scroll-mt-28">
+        <OfferTools record={record} goals={goals} savedGoals={savedGoals} onGoalsChange={setGoals} />
+      </div>
 
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
-      <SavedAdu record={record} analysis={a} />
+      <div id="adu" className="scroll-mt-28">
+        <SavedAdu record={record} analysis={a} />
+      </div>
 
+      <div id="market" className="scroll-mt-28 space-y-5">
       {record.otherEstimates && record.otherEstimates.length > 0 && (
         <Panel title="Outside estimates" description="Entered by hand from Zillow, Redfin, agents and others" className="print:break-inside-avoid">
           <OtherEstimatesSummary rows={record.otherEstimates} currentArv={record.afterRepairValue ?? ""} currentRent={record.monthlyRent} />
@@ -201,8 +220,10 @@ function BuyHoldAnalysis({
           <MarketDataSummary data={record.marketData} />
         </Panel>
       )}
+      </div>
 
       <Panel
+        id="projection"
         title={`${a.sale.holdingPeriodYears}-year projection`}
         description="Rent, expenses and value compound at the growth rates entered; sale assumed at the end of the holding period."
         className="print:break-before-page"
@@ -210,17 +231,30 @@ function BuyHoldAnalysis({
         <ProjectionPanel a={a} />
       </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div id="details" className="grid scroll-mt-28 items-start gap-5 lg:grid-cols-2">
         <Panel title="Loan amortization" description="Annual totals of the monthly schedule" className="print:hidden">
           <AmortizationTable a={a} />
         </Panel>
-        <Panel title="How these numbers are calculated" className="print:break-before-page">
-          <FormulaReference />
+        <Panel title="How these numbers are calculated" description="Every metric's formula, in plain terms" className="print:break-before-page">
+          {acquisitionFirst ? <FormulaReference /> : <FoldedFormulas />}
         </Panel>
       </div>
 
       <Disclaimer />
     </div>
+  );
+}
+
+function FoldedFormulas() {
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+        <ChevronRight className="size-4 transition-transform group-open:rotate-90" /> Show formulas
+      </summary>
+      <div className="mt-4">
+        <FormulaReference />
+      </div>
+    </details>
   );
 }
 
@@ -305,7 +339,7 @@ function OfferTools({
 }
 
 /** BRRRR / Flip deal page and report. */
-function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord; criteria: InvestmentCriteria }) {
+function StrategyPropertyAnalysis({ record, criteria, showNav }: { record: PropertyRecord; criteria: InvestmentCriteria; showNav: boolean }) {
   const strategy = record.strategy as Exclude<StrategyValue, "BUY_HOLD">;
   const inputs = useMemo(() => recordToInputs(record), [record]);
   const saved = useMemo(() => resolveStrategyInputs(record.strategyInputs, String(criteria.minDscr)), [record.strategyInputs, criteria.minDscr]);
@@ -321,13 +355,23 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
   const dirty = JSON.stringify(goals) !== JSON.stringify(saved.goals);
   const acqLabel = { hardMoney: "Hard money", conventional: "Conventional mortgage", cash: "All cash" }[saved.acquisition.type];
 
+  const nav = [
+    { id: "overview", label: "Overview" },
+    { id: "steps", label: brrrr ? "Step by step" : "Profit & loss" },
+    { id: "offer", label: "Max offer" },
+    ...(brrrr && record.aduInputs ? [{ id: "adu", label: "ADU" }] : []),
+    ...(record.marketData || record.otherEstimates?.length ? [{ id: "market", label: "Market data" }] : []),
+    ...(brrrr ? [{ id: "projection", label: "Projection" }] : []),
+  ];
   return (
     <div className="space-y-5">
+      {showNav && <SectionNav items={nav} />}
+      <div id="overview" className="scroll-mt-28" />
       <CriteriaPanel rating={rating} checks={checks} footer="Goals for this deal are set under Max offer price below." />
       {brrrr ? <BrrrrMetrics b={brrrr} columns={3} /> : <FlipMetrics f={flip!} columns={3} />}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title={brrrr ? "BRRRR step by step" : "Profit & loss"} className="print:break-inside-avoid">
+        <Panel id="steps" title={brrrr ? "BRRRR step by step" : "Profit & loss"} className="print:break-inside-avoid">
           {brrrr ? <BrrrrSteps b={brrrr} input={inputs} /> : <FlipStatement f={flip!} input={inputs} />}
         </Panel>
         {brrrr ? (
@@ -363,6 +407,7 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
         </Panel>
       )}
 
+      <div id="offer" className="scroll-mt-28">
       <StrategyOfferTools
         strategy={strategy}
         inputs={inputs}
@@ -388,11 +433,13 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
           ) : undefined
         }
       />
+      </div>
 
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
-      {brrrr && <SavedAdu record={record} analysis={brrrr.rental} />}
+      <div id="adu" className="scroll-mt-28">{brrrr && <SavedAdu record={record} analysis={brrrr.rental} />}</div>
 
+      <div id="market" className="scroll-mt-28 space-y-5">
       {record.otherEstimates && record.otherEstimates.length > 0 && (
         <Panel title="Outside estimates" description="Entered by hand from Zillow, Redfin, agents and others" className="print:break-inside-avoid">
           <OtherEstimatesSummary rows={record.otherEstimates} currentArv={record.afterRepairValue ?? ""} currentRent={record.monthlyRent} />
@@ -404,9 +451,11 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
           <MarketDataSummary data={record.marketData} />
         </Panel>
       )}
+      </div>
 
       {brrrr && (
         <Panel
+          id="projection"
           title={`${brrrr.rental.sale.holdingPeriodYears}-year projection after refinance`}
           description="Rent, expenses and value compound from the ARV; returns are measured on the cash left in the deal."
           className="print:break-before-page"

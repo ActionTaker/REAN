@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 import { CheckCircle2, ChevronDown, CircleMinus, TriangleAlert, XCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MetricCard, toneFor } from "@/components/common/metric-card";
+import { MetricCard, toneFor, type Tone } from "@/components/common/metric-card";
 import { InfoTip } from "@/components/common/info-tip";
 import { ProjectionChart } from "@/components/charts/projection-chart";
 import { cn } from "@/lib/utils";
@@ -27,8 +27,18 @@ const moneyC = (v: D | null) => formatCurrency(v, { cents: true });
 
 // ─── Headline metrics ──────────────────────────────────────────────────────
 
-export function KeyMetrics({ a, columns = 3 }: { a: DealAnalysis; columns?: 2 | 3 | 6 }) {
+export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; columns?: 2 | 3 | 6; checks?: CriteriaCheck[] }) {
   const hasArv = a.equityCreated !== null;
+  // When the deal has a goal for a metric, color it by pass/fail (a positive 3.8% that misses a 6% goal isn't "green").
+  const goal = (key: string) => checks?.find((c) => c.key === key && c.passed !== null);
+  const tone = (key: string, fallback: Tone) => {
+    const g = goal(key);
+    return g ? (g.passed ? "positive" : "negative") : fallback;
+  };
+  const sub = (key: string, fallback: string) => {
+    const g = goal(key);
+    return g ? `Goal ${g.target} · ${g.passed ? "met" : "missed"}` : fallback;
+  };
   return (
     <div
       className={cn(
@@ -42,24 +52,25 @@ export function KeyMetrics({ a, columns = 3 }: { a: DealAnalysis; columns?: 2 | 
       <MetricCard
         label="Monthly cash flow"
         value={money(a.monthlyCashFlow)}
-        tone={toneFor(a.monthlyCashFlow)}
-        sub={`${money(a.annualCashFlow)} / year`}
+        tone={tone("breakEven", toneFor(a.monthlyCashFlow))}
+        sub={sub("breakEven", `${money(a.annualCashFlow)} / year`)}
         metric={METRICS.monthlyCashFlow}
       />
-      <MetricCard label="Cap rate" value={formatPercent(a.capRate)} metric={METRICS.capRate} sub="Unlevered" />
+      <MetricCard label="Cap rate" value={formatPercent(a.capRate)} metric={METRICS.capRate} tone={tone("capRate", "default")} sub={sub("capRate", "Unlevered")} />
       <MetricCard
         label="Cash-on-cash"
         value={formatPercent(a.cashOnCash)}
-        tone={toneFor(a.cashOnCash)}
+        tone={tone("cashOnCash", toneFor(a.cashOnCash))}
         metric={METRICS.cashOnCash}
-        sub="Year 1"
+        sub={sub("cashOnCash", "Year 1")}
       />
       <MetricCard label="Net operating income" value={money(a.annualNOI)} sub={`${money(a.monthlyNOI)} / month`} metric={METRICS.noi} />
       <MetricCard label="Total cash invested" value={money(a.totalCashInvested)} metric={METRICS.totalCashInvested} sub="Down + closing + rehab" />
       <MetricCard
         label="DSCR"
         value={a.dscr ? formatRatio(a.dscr, 2, "×") : "n/a"}
-        sub={a.dscr ? "NOI ÷ debt service" : "No financing"}
+        sub={a.dscr ? sub("dscr", "NOI ÷ debt service") : "No financing"}
+        tone={tone("dscr", "default")}
         metric={METRICS.dscr}
       />
       {hasArv && (
@@ -67,8 +78,8 @@ export function KeyMetrics({ a, columns = 3 }: { a: DealAnalysis; columns?: 2 | 
           <MetricCard
             label="Equity created"
             value={money(a.equityCreated)}
-            tone={toneFor(a.equityCreated)}
-            sub="ARV − (price + closing + rehab)"
+            tone={tone("equity", toneFor(a.equityCreated))}
+            sub={sub("equity", "ARV − (price + closing + rehab)")}
             metric={METRICS.equityCreated}
           />
           <MetricCard
@@ -193,7 +204,38 @@ export function CriteriaPanel({
           <p className="text-xs text-muted-foreground">{r.body}</p>
         </div>
       </div>
-      <ul className={cn("grid divide-y", !stacked && "sm:grid-cols-2 sm:divide-y-0")}>
+      {stacked ? (
+        // Narrow side panel: one chip per goal so the key numbers stay above the fold.
+        <div className="space-y-2 px-4 py-3">
+          {checks.some((c) => c.passed !== null) && (
+            <p className="text-xs text-muted-foreground">
+              {checks.filter((c) => c.passed).length} of {checks.filter((c) => c.passed !== null).length} goals met
+            </p>
+          )}
+          <ul className="flex flex-wrap gap-1.5">
+            {checks.map((c) => {
+              const Icon = c.passed === null ? CircleMinus : c.passed ? CheckCircle2 : XCircle;
+              const detail = c.passed === null ? c.target : `${c.passed ? "Meets" : "Misses"} ${c.target}`;
+              return (
+                <li
+                  key={c.key}
+                  title={detail}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
+                    c.passed === null ? "text-muted-foreground" : c.passed ? "border-positive/30 bg-positive/5" : "border-negative/30 bg-negative/5",
+                  )}
+                >
+                  <Icon className={cn("size-3.5 shrink-0", c.passed === null ? "" : c.passed ? "text-positive" : "text-negative")} />
+                  {c.label}
+                  {c.passed === false && <span className="text-muted-foreground">({c.target})</span>}
+                </li>
+              );
+            })}
+            {checks.length === 0 && <li className="text-sm text-muted-foreground">No goals selected for this deal.</li>}
+          </ul>
+        </div>
+      ) : (
+      <ul className="grid divide-y sm:grid-cols-2 sm:divide-y-0">
         {checks.map((c) => {
           const Icon = c.passed === null ? CircleMinus : c.passed ? CheckCircle2 : XCircle;
           return (
@@ -213,6 +255,7 @@ export function CriteriaPanel({
         })}
         {checks.length === 0 && <li className="px-4 py-2.5 text-sm text-muted-foreground">No goals selected for this deal.</li>}
       </ul>
+      )}
       {(cashFlowNote || footer) && (
         <div className="space-y-1 border-t px-4 py-2.5 text-[11px] leading-snug">
           {cashFlowNote && (
