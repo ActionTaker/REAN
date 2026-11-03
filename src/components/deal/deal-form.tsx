@@ -601,6 +601,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             stateCode={regionalFactor(values.state).code}
             rentSuggestion={aduRentSuggestion}
             dealCapRate={rentalView.capRate}
+            result={adu}
           />
           </div>
         )}
