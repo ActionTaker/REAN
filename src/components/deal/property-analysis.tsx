@@ -13,6 +13,7 @@ import { analyzeBrrrr, analyzeDeal, analyzeFlip, dec, formatCurrency, type Inves
 import { recordToInputs, trimZeros, type PropertyRecord } from "@/lib/property-mapping";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { MarketDataSummary } from "./market-data";
+import { SavedComps } from "./saved-comps";
 import { BrrrrMetrics, BrrrrSteps, FlipMetrics, FlipStatement, StrategyOfferTools, rateStrategy, strategyChecks } from "./strategy-panels";
 import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type StrategyValue } from "@/lib/strategy";
 import { DealTools } from "./deal-tools";
@@ -94,6 +95,7 @@ function BuyHoldAnalysis({
     { id: "offer", label: "Max offer" },
     ...(record.aduInputs ? [{ id: "adu", label: "ADU" }] : []),
     ...(record.marketData || record.otherEstimates?.length ? [{ id: "market", label: "Market data" }] : []),
+    ...(record.marketData ? [{ id: "comps", label: "Comps" }] : []),
     { id: "projection", label: "Projection" },
     { id: "details", label: "Loan & formulas" },
   ];
@@ -217,7 +219,12 @@ function BuyHoldAnalysis({
           description="Automated estimates captured when this deal was analyzed"
           className="print:break-inside-avoid"
         >
-          <MarketDataSummary data={record.marketData} />
+          <MarketDataSummary data={record.marketData} showCompLists={false} />
+        </Panel>
+      )}
+      {record.marketData && (
+        <Panel id="comps" title="Comparable properties" description="The sales and rentals behind the ARV and rent, on a map" className="print:break-before-page">
+          <SavedComps record={record} printAll={acquisitionFirst} />
         </Panel>
       )}
       </div>
@@ -361,6 +368,7 @@ function StrategyPropertyAnalysis({ record, criteria, showNav }: { record: Prope
     { id: "offer", label: "Max offer" },
     ...(brrrr && record.aduInputs ? [{ id: "adu", label: "ADU" }] : []),
     ...(record.marketData || record.otherEstimates?.length ? [{ id: "market", label: "Market data" }] : []),
+    ...(record.marketData ? [{ id: "comps", label: "Comps" }] : []),
     ...(brrrr ? [{ id: "projection", label: "Projection" }] : []),
   ];
   return (
@@ -448,7 +456,12 @@ function StrategyPropertyAnalysis({ record, criteria, showNav }: { record: Prope
 
       {record.marketData && (
         <Panel title="Market data" description="Automated estimates captured when this deal was analyzed" className="print:break-inside-avoid">
-          <MarketDataSummary data={record.marketData} />
+          <MarketDataSummary data={record.marketData} showCompLists={false} />
+        </Panel>
+      )}
+      {record.marketData && (
+        <Panel id="comps" title="Comparable properties" description="The sales and rentals behind the ARV and rent, on a map" className="print:break-before-page">
+          <SavedComps record={record} printAll={!showNav} />
         </Panel>
       )}
       </div>

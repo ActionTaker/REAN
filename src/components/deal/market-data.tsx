@@ -46,9 +46,12 @@ export function MarketDataSummary({
   data,
   compact,
   onOpenComps,
+  showCompLists = true,
 }: {
   data: PropertyLookup;
   compact?: boolean;
+  /** Plain comp lists; off where a richer comps view is shown instead. */
+  showCompLists?: boolean;
   /** When given, the ARV and rent tiles get a button that opens the matching comps panel. */
   onOpenComps?: (mode: "sale" | "rent") => void;
 }) {
@@ -123,8 +126,8 @@ export function MarketDataSummary({
       )}
 
       {/* With the Comps buttons above, the full panels replace these lists; saved snapshots (no buttons) still show them. */}
-      {!onOpenComps && data.value && data.value.comparables.length > 0 && <CompTable title="Comparable sales" comps={data.value.comparables} unit="" />}
-      {!onOpenComps && data.rent && data.rent.comparables.length > 0 && <CompTable title="Comparable rentals" comps={data.rent.comparables} unit="/mo" />}
+      {!onOpenComps && showCompLists && data.value && data.value.comparables.length > 0 && <CompTable title="Comparable sales" comps={data.value.comparables} unit="" />}
+      {!onOpenComps && showCompLists && data.rent && data.rent.comparables.length > 0 && <CompTable title="Comparable rentals" comps={data.rent.comparables} unit="/mo" />}
 
       <p className="text-[11px] text-muted-foreground">
         Automated estimates from public records and listings. They can be wrong. Check them against local comps, an appraisal, and a property manager&apos;s rent opinion.

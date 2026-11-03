@@ -108,7 +108,7 @@ export function CompsMap({
     );
   }
   return (
-    <figure className="overflow-hidden rounded-xl border">
+    <figure className="overflow-hidden rounded-xl border print:break-inside-avoid print:[&_.leaflet-control-zoom]:hidden">
       <div ref={el} className="h-80 w-full" role="region" aria-label="Map of comparable properties" />
       <figcaption className="flex flex-wrap gap-x-3 gap-y-1 border-t px-3 py-2 text-[11px] text-muted-foreground">
         <span><span className="subject-pin subject-pin--legend">&#8962;</span> your property</span>
