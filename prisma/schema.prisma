@@ -1,0 +1,193 @@
+// DEALAN — Real estate investment analysis
+// Money is stored as DECIMAL(14,2); rates are stored as percentages (7.25 = 7.25%) in DECIMAL(9,4).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth.js models ──────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  properties Property[]
+  settings   UserSettings?
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ─── Domain models ───────────────────────────────────────────────────────────
+
+enum PropertyType {
+  SINGLE_FAMILY
+  CONDO
+  TOWNHOUSE
+  DUPLEX
+  TRIPLEX
+  FOURPLEX
+  MULTIFAMILY
+}
+
+enum DealStatus {
+  ANALYZING
+  OFFER_MADE
+  UNDER_CONTRACT
+  OWNED
+  PASSED
+}
+
+model Property {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Sample properties are seeded for demonstration and are always labelled in the UI.
+  isSample  Boolean  @default(false)
+  status    DealStatus @default(ANALYZING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Property details
+  name         String
+  address      String?
+  city         String?
+  state        String?
+  zip          String?
+  propertyType PropertyType @default(SINGLE_FAMILY)
+  units        Int          @default(1)
+  bedrooms     Int?
+  bathrooms    Decimal?     @db.Decimal(4, 1)
+  squareFeet   Int?
+  yearBuilt    Int?
+  notes        String?
+
+  // Purchase
+  purchasePrice Decimal @db.Decimal(14, 2)
+  closingCosts  Decimal @default(0) @db.Decimal(14, 2)
+  rehabCosts    Decimal @default(0) @db.Decimal(14, 2)
+  /// Max-offer goals chosen for this deal: { [goalKey]: { enabled, target } }.
+  offerGoals Json?
+  /// Rehab scope + line items ({ scope, contingencyPct, items[], customized }). rehabCosts holds the total.
+  rehabPlan Json?
+  /// After-repair value. When set, projections start from this value instead of the purchase price.
+  afterRepairValue Decimal? @db.Decimal(14, 2)
+  /// Snapshot of the automated market-data lookup used for this deal (source, estimates, comparables).
+  marketData Json?
+
+  // Financing
+  isCashPurchase     Boolean @default(false)
+  downPaymentPercent Decimal @default(25) @db.Decimal(9, 4)
+  interestRate       Decimal @default(7) @db.Decimal(9, 4)
+  loanTermYears      Int     @default(30)
+
+  // Income (monthly)
+  monthlyRent        Decimal @db.Decimal(14, 2)
+  otherMonthlyIncome Decimal @default(0) @db.Decimal(14, 2)
+  vacancyRate        Decimal @default(5) @db.Decimal(9, 4)
+
+  // Operating expenses
+  propertyTaxAnnual     Decimal @default(0) @db.Decimal(14, 2)
+  insuranceAnnual       Decimal @default(0) @db.Decimal(14, 2)
+  hoaMonthly            Decimal @default(0) @db.Decimal(14, 2)
+  utilitiesMonthly      Decimal @default(0) @db.Decimal(14, 2)
+  otherMonthlyExpenses  Decimal @default(0) @db.Decimal(14, 2)
+  maintenancePercent    Decimal @default(5) @db.Decimal(9, 4)
+  capexPercent          Decimal @default(5) @db.Decimal(9, 4)
+  managementPercent     Decimal @default(8) @db.Decimal(9, 4)
+
+  // Long-term projection assumptions
+  appreciationRate   Decimal @default(3) @db.Decimal(9, 4)
+  rentGrowthRate     Decimal @default(3) @db.Decimal(9, 4)
+  expenseGrowthRate  Decimal @default(2.5) @db.Decimal(9, 4)
+  sellingCostPercent Decimal @default(6) @db.Decimal(9, 4)
+  holdingPeriodYears Int     @default(30)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Investment criteria used to flag deals (not guarantees — just the user's own thresholds)
+  targetCapRate        Decimal @default(6) @db.Decimal(9, 4)
+  targetCashOnCash     Decimal @default(6) @db.Decimal(9, 4)
+  minMonthlyCashFlowPerUnit Decimal @default(100) @db.Decimal(14, 2)
+  minDscr              Decimal @default(1.25) @db.Decimal(9, 4)
+
+  // Defaults pre-filled into new deals
+  defaultDownPaymentPercent Decimal @default(25) @db.Decimal(9, 4)
+  defaultInterestRate       Decimal @default(7) @db.Decimal(9, 4)
+  defaultLoanTermYears      Int     @default(30)
+  defaultVacancyRate        Decimal @default(5) @db.Decimal(9, 4)
+  defaultMaintenancePercent Decimal @default(5) @db.Decimal(9, 4)
+  defaultCapexPercent       Decimal @default(5) @db.Decimal(9, 4)
+  defaultManagementPercent  Decimal @default(8) @db.Decimal(9, 4)
+  defaultAppreciationRate   Decimal @default(3) @db.Decimal(9, 4)
+  defaultRentGrowthRate     Decimal @default(3) @db.Decimal(9, 4)
+  defaultExpenseGrowthRate  Decimal @default(2.5) @db.Decimal(9, 4)
+  defaultSellingCostPercent Decimal @default(6) @db.Decimal(9, 4)
+  defaultHoldingPeriodYears Int     @default(30)
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Cached third-party property-data lookups, keyed by normalized address, to conserve API quota.
+model PropertyDataCache {
+  addressKey String   @id
+  provider   String
+  payload    Json
+  fetchedAt  DateTime @default(now())
+}

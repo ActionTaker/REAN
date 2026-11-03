@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Every page in this app is user-specific, so we use the request-time
+  // rendering model rather than Cache Components / partial prefetching.
   turbopack: {
     rules: {
       "*.css": {

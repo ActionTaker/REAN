@@ -1,0 +1,466 @@
+"use client";
+
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SampleBadge } from "@/components/common/sample-badge";
+import { Disclaimer } from "@/components/common/disclaimer";
+import { cn } from "@/lib/utils";
+import { DEAL_STATUSES, PROPERTY_TYPES, US_STATES } from "@/lib/constants";
+import { analyzeDeal, chartNumber, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
+import { formValuesToInputs } from "@/lib/property-mapping";
+import { dealSchema, type DealFormOutput, type DealFormValues } from "@/lib/validation/deal";
+import { saveDeal } from "@/app/actions/properties";
+import { RehabEstimator } from "./rehab-estimator";
+import { DealTools } from "./deal-tools";
+import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
+import { buildRehabPlan, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
+import { estimateClosingCosts, estimateInsurance, type CostEstimate } from "@/lib/estimates/costs";
+import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
+import { NumberInput } from "./number-input";
+import { AddressLookup } from "./address-lookup";
+import type { PropertyLookup } from "@/lib/property-data/types";
+import { formatAddress } from "@/lib/property-mapping";
+import { ProjectionChart } from "@/components/charts/projection-chart";
+
+type Name = FieldPath<DealFormValues>;
+
+interface Props {
+  propertyId: string | null;
+  defaultValues: DealFormValues;
+  criteria: InvestmentCriteria;
+  isSample?: boolean;
+}
+
+export function DealForm({ propertyId, defaultValues, criteria, isSample }: Props) {
+  const router = useRouter();
+  const [saving, startSaving] = useTransition();
+  const form = useForm<DealFormValues, unknown, DealFormOutput>({
+    resolver: zodResolver(dealSchema),
+    defaultValues,
+    mode: "onTouched",
+  });
+  const { register, control, handleSubmit, setValue, setError, getValues, formState } = form;
+  const errors = formState.errors;
+
+  // Live analysis — recomputed from whatever is typed, invalid fields count as 0.
+  const values = useWatch({ control }) as DealFormValues;
+  const deferred = useDeferredValue(values);
+  const liveInputs = useMemo(() => formValuesToInputs(deferred), [deferred]);
+  const analysis = useMemo(() => analyzeDeal(liveInputs), [liveInputs]);
+  // Rated against this deal's own goals (set in Max offer price below).
+  const offerGoals = useMemo(() => resolveOfferGoals(values.offerGoals as OfferGoals | null, criteria), [values.offerGoals, criteria]);
+  const { checks, rating } = useMemo(() => rateAgainstGoals(analysis, offerGoals), [analysis, offerGoals]);
+  const isCash = !!values.isCashPurchase;
+  const [lookupAddress, setLookupAddress] = useState<string | null>(null);
+
+  // ── Estimates that pre-fill fields until the user types their own number ──
+  const sqftNum = parseInt(String(values.squareFeet ?? ""), 10) || null;
+  const unitsNum = parseInt(String(values.units ?? ""), 10) || 1;
+  const priceStr = formValuesToInputs(values).purchasePrice as string;
+  const insuranceEst = useMemo(
+    () => estimateInsurance({ state: values.state, squareFeet: sqftNum, price: priceStr }),
+    [values.state, sqftNum, priceStr],
+  );
+  const closingEst = useMemo(() => estimateClosingCosts({ state: values.state, price: priceStr }), [values.state, priceStr]);
+  const insuranceAuto = useAutoEstimate("insuranceAnnual", insuranceEst, getValues, setValue);
+  const closingAuto = useAutoEstimate("closingCosts", closingEst, getValues, setValue);
+
+  // ── Rehab plan: rebuild from property facts until customized; its total drives rehabCosts ──
+  const rehabPlan = (values.rehabPlan ?? null) as RehabPlan | null;
+  const rehabCtx = useMemo(
+    () => ({ squareFeet: sqftNum, bathrooms: String(values.bathrooms ?? ""), units: unitsNum, state: values.state }),
+    [sqftNum, values.bathrooms, unitsNum, values.state],
+  );
+  const setRehabPlan = (plan: RehabPlan | null) => {
+    setValue("rehabPlan", plan as never, { shouldDirty: true });
+    if (plan) {
+      const t = rehabTotals({ items: plan.items.map((i) => ({ ...i, amount: i.amount.replace(/[,$\s]/g, "") || "0" })), contingencyPct: plan.contingencyPct || "0" });
+      setValue("rehabCosts", t.total.toString(), { shouldDirty: true, shouldValidate: true });
+    }
+  };
+  useEffect(() => {
+    const current = getValues("rehabPlan") as RehabPlan | null;
+    if (!current || current.customized) return;
+    const { assumptions: _a, ...next } = buildRehabPlan(current.scope, rehabCtx);
+    if (JSON.stringify(next.items) !== JSON.stringify(current.items)) setRehabPlan({ ...next, contingencyPct: current.contingencyPct });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rehabCtx]);
+
+  /** Copy lookup results into the form. Everything stays editable; purchase price is only filled when empty. */
+  const applyLookup = (d: PropertyLookup, address: string) => {
+    const opts = { shouldDirty: true, shouldValidate: true } as const;
+    const filled: string[] = [];
+    const set = (name: Name, v: string | number | null | undefined, label?: string) => {
+      if (v === null || v === undefined || v === "") return;
+      setValue(name, String(v) as never, opts);
+      if (label) filled.push(label);
+    };
+    if (!getValues("name")) set("name", d.address.line1 ?? d.address.formatted);
+    set("address", d.address.line1);
+    set("city", d.address.city);
+    set("state", d.address.state);
+    set("zip", d.address.zip);
+    set("propertyType", d.facts.propertyType, "property type");
+    set("units", d.facts.units);
+    set("bedrooms", d.facts.bedrooms);
+    set("bathrooms", d.facts.bathrooms);
+    set("squareFeet", d.facts.squareFeet);
+    set("yearBuilt", d.facts.yearBuilt);
+    set("propertyTaxAnnual", d.propertyTaxAnnual?.amount, "taxes");
+    set("hoaMonthly", d.hoaMonthly, "HOA");
+    set("monthlyRent", d.rent?.total, "rent");
+    set("afterRepairValue", d.arv?.estimate, "ARV");
+    if (!String(getValues("purchasePrice") ?? "").trim()) set("purchasePrice", d.value?.estimate, "price (as-is value)");
+    setLookupAddress(address);
+    toast.success(`Applied ${filled.join(", ") || "property details"}. Review every number before saving.`);
+  };
+
+  const onSubmit = (data: DealFormOutput) =>
+    startSaving(async () => {
+      // Send the raw strings; the server re-validates with the same schema.
+      const res = await saveDeal(propertyId, getValues(), lookupAddress);
+      if (!res.ok) {
+        for (const [k, msgs] of Object.entries(res.fieldErrors ?? {})) {
+          if (msgs?.[0]) setError(k as Name, { message: msgs[0] });
+        }
+        toast.error(res.error);
+        return;
+      }
+      toast.success(propertyId ? "Analysis updated" : `“${data.name}” saved to My Properties`);
+      router.push(`/properties/${res.id}`);
+      router.refresh();
+    });
+
+  const err = (n: Name) => {
+    const e = n.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], errors) as { message?: string } | undefined;
+    return e?.message;
+  };
+
+  const num = (n: Name, label: string, opts: { prefix?: string; suffix?: string; hint?: React.ReactNode; disabled?: boolean; className?: string } = {}) => (
+    <div className={cn("space-y-1.5", opts.className)}>
+      <Label htmlFor={n} className={cn("text-xs", opts.disabled && "opacity-50")}>{label}</Label>
+      <NumberInput id={n} prefix={opts.prefix} suffix={opts.suffix} disabled={opts.disabled} aria-invalid={!!err(n)} {...register(n)} />
+      {err(n) ? <p className="text-xs text-destructive">{err(n)}</p> : opts.hint ? <div className="text-[11px] leading-snug text-muted-foreground">{opts.hint}</div> : null}
+    </div>
+  );
+
+  const text = (n: Name, label: string, opts: { placeholder?: string; className?: string } = {}) => (
+    <div className={cn("space-y-1.5", opts.className)}>
+      <Label htmlFor={n} className="text-xs">{label}</Label>
+      <Input id={n} placeholder={opts.placeholder} aria-invalid={!!err(n)} {...register(n)} />
+      {err(n) && <p className="text-xs text-destructive">{err(n)}</p>}
+    </div>
+  );
+
+  const select = (n: Name, label: string, options: readonly { value: string; label: string }[], onChange?: (v: string) => void, className?: string) => (
+    <div className={cn("space-y-1.5", className)}>
+      <Label className="text-xs">{label}</Label>
+      <Controller
+        control={control}
+        name={n}
+        render={({ field }) => (
+          <Select
+            value={String(field.value ?? "")}
+            onValueChange={(v) => {
+              field.onChange(v);
+              onChange?.(v);
+            }}
+          >
+            <SelectTrigger className="w-full" aria-label={label}>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+    </div>
+  );
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Own grid so the sticky Live analysis panel stops at the end of the inputs
+          instead of sliding over the full-width Offer & risk card below. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
+      {/* ── Inputs ─────────────────────────────────────────────────────── */}
+      <div className="space-y-5">
+        {isSample && (
+          <div className="flex items-center gap-2 rounded-lg border border-sample-foreground/20 bg-sample px-3 py-2 text-xs text-sample-foreground">
+            <SampleBadge /> You&apos;re editing a sample property. Changes are saved, but it stays labelled as sample data.
+          </div>
+        )}
+
+        <AddressLookup
+          initialAddress={formatAddress({
+            address: defaultValues.address || null,
+            city: defaultValues.city || null,
+            state: defaultValues.state || null,
+            zip: defaultValues.zip || null,
+          })}
+          onApply={applyLookup}
+          onAddressSelected={(sug) => {
+            const opts = { shouldDirty: true } as const;
+            if (!getValues("name")) setValue("name", sug.line1, opts);
+            setValue("address", sug.line1, opts);
+            if (sug.city) setValue("city", sug.city, opts);
+            if (sug.state) setValue("state", sug.state, opts);
+            if (sug.zip) setValue("zip", sug.zip, opts);
+          }}
+        />
+
+        <Section title="Property" description="Basic details used for per-unit and per-square-foot metrics.">
+          <div className="grid gap-4 sm:grid-cols-6">
+            {text("name", "Deal name *", { placeholder: "e.g. Maple St Duplex", className: "sm:col-span-4" })}
+            {select("status", "Status", DEAL_STATUSES, undefined, "sm:col-span-2")}
+            {text("address", "Street address", { className: "sm:col-span-6" })}
+            {text("city", "City", { className: "sm:col-span-3" })}
+            {select("state", "State", US_STATES.map((s) => ({ value: s, label: s })), undefined, "sm:col-span-1")}
+            {text("zip", "ZIP", { className: "sm:col-span-2" })}
+            {select(
+              "propertyType",
+              "Property type",
+              PROPERTY_TYPES,
+              (v) => {
+                const t = PROPERTY_TYPES.find((p) => p.value === v);
+                if (t) setValue("units", String(t.units), { shouldDirty: true });
+              },
+              "sm:col-span-3",
+            )}
+            {num("units", "Units", { className: "sm:col-span-1" })}
+            {num("squareFeet", "Sq ft", { className: "sm:col-span-2" })}
+            {num("bedrooms", "Beds", { className: "sm:col-span-2" })}
+            {num("bathrooms", "Baths", { className: "sm:col-span-2" })}
+            {num("yearBuilt", "Year built", { className: "sm:col-span-2" })}
+          </div>
+        </Section>
+
+        <Section title="Purchase" description="Your all-in acquisition cost and, optionally, the value after repairs.">
+          <div className="grid gap-4 sm:grid-cols-4">
+            {num("purchasePrice", "Purchase price *", { prefix: "$" })}
+            {num("closingCosts", "Closing costs", { prefix: "$", hint: <EstimateHint est={closingEst} auto={closingAuto} fallback="Enter price & state to estimate" /> })}
+            {num("rehabCosts", "Rehab / repairs", {
+              prefix: "$",
+              disabled: !!rehabPlan,
+              hint: rehabPlan ? "From the rehab scope below" : "Pick a scope below to estimate",
+            })}
+            {num("afterRepairValue", "After-repair value", {
+              prefix: "$",
+              hint: analysis.equityCreated ? "Calculation shown below" : "Optional — projections start here",
+            })}
+          </div>
+          <RehabEstimator plan={rehabPlan} ctx={rehabCtx} onChange={setRehabPlan} />
+          <ArvBreakdown a={analysis} className="mt-4" />
+        </Section>
+
+        <Section
+          title="Financing"
+          description="Fixed-rate mortgage assumptions."
+          action={
+            <Controller
+              control={control}
+              name="isCashPurchase"
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                  All-cash purchase
+                </label>
+              )}
+            />
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-3">
+            {num("downPaymentPercent", "Down payment", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `= ${formatCurrency(analysis.downPayment)} · loan ${formatCurrency(analysis.loanAmount)}` })}
+            {num("interestRate", "Interest rate", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `P&I ${formatCurrency(analysis.monthlyMortgagePayment, { cents: true })}/mo` })}
+            {num("loanTermYears", "Loan term", { suffix: "years", disabled: isCash })}
+          </div>
+        </Section>
+
+        <Section title="Rental income" description="Enter the total for all units.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {num("monthlyRent", "Monthly rent (all units)", { prefix: "$" })}
+            {num("otherMonthlyIncome", "Other monthly income", { prefix: "$", hint: "Laundry, parking, storage, pet fees" })}
+            {num("vacancyRate", "Vacancy rate", { suffix: "%", hint: "5–8% is common for SFR" })}
+          </div>
+        </Section>
+
+        <Section title="Operating expenses" description="Fixed costs plus reserves estimated as a share of income.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {num("propertyTaxAnnual", "Property taxes", { prefix: "$", suffix: "/yr" })}
+            {num("insuranceAnnual", "Insurance", { prefix: "$", suffix: "/yr", hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" /> })}
+            {num("hoaMonthly", "HOA fees", { prefix: "$", suffix: "/mo" })}
+            {num("utilitiesMonthly", "Utilities (owner-paid)", { prefix: "$", suffix: "/mo" })}
+            {num("otherMonthlyExpenses", "Other expenses", { prefix: "$", suffix: "/mo", hint: "Lawn, pest, snow, accounting" })}
+            <div className="hidden sm:block" />
+            {num("maintenancePercent", "Repairs & maintenance", { suffix: "% gross", hint: "Of gross monthly income" })}
+            {num("capexPercent", "CapEx reserve", { suffix: "% gross", hint: "Roof, HVAC, water heater…" })}
+            {num("managementPercent", "Property management", { suffix: "% coll.", hint: "Of collected rent (after vacancy)" })}
+          </div>
+        </Section>
+
+        <Section title="Long-term assumptions" description="Used for the multi-year projection, sale and IRR. These are assumptions, not forecasts.">
+          <div className="grid gap-4 sm:grid-cols-5">
+            {num("appreciationRate", "Appreciation", { suffix: "%/yr" })}
+            {num("rentGrowthRate", "Rent growth", { suffix: "%/yr" })}
+            {num("expenseGrowthRate", "Expense growth", { suffix: "%/yr" })}
+            {num("sellingCostPercent", "Selling costs", { suffix: "%" })}
+            {num("holdingPeriodYears", "Hold period", { suffix: "yrs" })}
+          </div>
+        </Section>
+
+        <Section title="Notes">
+          <Textarea rows={3} placeholder="Condition, comps, rent sources, questions for the agent…" {...register("notes")} />
+        </Section>
+      </div>
+
+      {/* ── Live results ───────────────────────────────────────────────── */}
+      <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">Live analysis</h2>
+          <span className="text-xs text-muted-foreground">updates as you type</span>
+          <div className="ml-auto flex gap-2">
+            {propertyId && (
+              <Button type="button" variant="ghost" size="sm" asChild>
+                <Link href={`/properties/${propertyId}`}>Cancel</Link>
+              </Button>
+            )}
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? <Loader2 className="animate-spin" /> : <Save />}
+              {propertyId ? "Save changes" : "Save deal"}
+            </Button>
+          </div>
+        </div>
+
+        <CriteriaPanel
+          rating={rating}
+          checks={checks}
+          stacked
+          cashFlowNote={!cashFlowRequired(offerGoals) && analysis.monthlyCashFlow.isNegative()}
+          footer="Goals come from Max offer price below — change the strategy or targets there."
+        />
+
+        <Tabs defaultValue="summary">
+          <TabsList className="w-full">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="cashflow">Cash flow</TabsTrigger>
+            <TabsTrigger value="longterm">Long-term</TabsTrigger>
+          </TabsList>
+          <TabsContent value="summary" className="mt-3">
+            <KeyMetrics a={analysis} columns={2} />
+          </TabsContent>
+          <TabsContent value="cashflow" className="mt-3 rounded-xl border bg-card p-2 shadow-xs">
+            <CashFlowStatement a={analysis} />
+          </TabsContent>
+          <TabsContent value="longterm" className="mt-3 space-y-4">
+            <SaleSummary a={analysis} />
+            <div className="rounded-xl border bg-card p-4 shadow-xs">
+              <ProjectionChart
+                data={analysis.projections.map((p) => ({
+                  year: p.year,
+                  propertyValue: chartNumber(p.propertyValue, 0),
+                  loanBalance: chartNumber(p.loanBalance, 0),
+                  equity: chartNumber(p.equity, 0),
+                }))}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+        <Disclaimer />
+      </aside>
+
+      </div>
+
+      <DealTools
+        inputs={liveInputs}
+        goals={offerGoals}
+        onGoalsChange={(g) => setValue("offerGoals", g as never, { shouldDirty: true })}
+      />
+    </form>
+  );
+}
+
+function Section({ title, description, action, children }: { title: string; description?: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Card className="gap-4">
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div className="space-y-1">
+          <CardTitle className="text-sm">{title}</CardTitle>
+          {description && <CardDescription className="text-xs">{description}</CardDescription>}
+        </div>
+        {action}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+type AutoState = { isAuto: boolean; apply: () => void };
+
+/**
+ * Keeps a field filled with an estimate while it's empty, zero, or still equal
+ * to the last value we put there. As soon as the user types something else,
+ * the estimate stops overwriting it (and can be re-applied from the hint).
+ */
+function useAutoEstimate(
+  name: "insuranceAnnual" | "closingCosts",
+  est: CostEstimate | null,
+  getValues: (n: Name) => unknown,
+  setValue: (n: Name, v: never, o?: object) => void,
+): AutoState {
+  const lastAuto = useRef<string | null>(null);
+  const target = est?.amount.toString() ?? null;
+
+  useEffect(() => {
+    if (!target) return;
+    const current = String(getValues(name) ?? "").trim();
+    if (current === "" || current === "0" || current === lastAuto.current) {
+      if (current !== target) setValue(name, target as never, { shouldDirty: true, shouldValidate: true });
+      lastAuto.current = target;
+    }
+  }, [target, name, getValues, setValue]);
+
+  return {
+    // The field "is the estimate" whenever it holds exactly the current estimate.
+    isAuto: target !== null && String(getValues(name) ?? "").trim() === target,
+    apply: () => {
+      if (!target) return;
+      setValue(name, target as never, { shouldDirty: true, shouldValidate: true });
+      lastAuto.current = target;
+    },
+  };
+}
+
+function EstimateHint({ est, auto, fallback }: { est: CostEstimate | null; auto: AutoState; fallback: string }) {
+  if (!est) return <>{fallback}</>;
+  if (auto.isAuto) {
+    return (
+      <span title={est.basis}>
+        <span className="mr-1 rounded bg-series-1/10 px-1 py-px text-[10px] font-medium text-series-1">Estimate</span>
+        {est.basis}
+      </span>
+    );
+  }
+  return (
+    <span>
+      Estimate {formatCurrency(est.amount)} ·{" "}
+      <button type="button" onClick={auto.apply} className="font-medium text-foreground underline underline-offset-2">
+        Use
+      </button>
+    </span>
+  );
+}

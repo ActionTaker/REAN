@@ -1,69 +1,71 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Calculator, FileText, GitCompareArrows, Sigma } from "lucide-react";
+import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
+import { Brand } from "@/components/shell/brand";
+import { Disclaimer } from "@/components/common/disclaimer";
 
-export default function Home() {
+const FEATURES = [
+  { icon: Calculator, title: "Underwrite in minutes", body: "Purchase, financing, income and expenses in one form. Cash flow, cap rate, cash-on-cash and DSCR update as you type." },
+  { icon: Sigma, title: "Every formula shown", body: "Hover any metric to see exactly how it was calculated. Decimal-precise math — no floating-point rounding surprises." },
+  { icon: GitCompareArrows, title: "Compare side by side", body: "Line up to four deals and see which one clears your investment criteria." },
+  { icon: FileText, title: "Lender-ready reports", body: "Print or save a clean, professional analysis to share with partners and lenders." },
+];
+
+export default async function LandingPage() {
+  const session = await auth();
+  const signedIn = !!session?.user;
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen">
+      <header className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <Brand href="/" />
+        <div className="flex items-center gap-2">
+          {signedIn ? (
+            <Button asChild><Link href="/dashboard">Open dashboard</Link></Button>
+          ) : (
+            <>
+              <Button variant="ghost" asChild><Link href="/login">Sign in</Link></Button>
+              <Button asChild><Link href="/register">Get started</Link></Button>
+            </>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <section className="mx-auto max-w-6xl px-4 pt-16 pb-20 text-center sm:pt-24">
+        <p className="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">Buy & hold rental analysis</p>
+        <h1 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          Know what a rental property will really earn — before you make an offer.
+        </h1>
+        <p className="mx-auto mt-5 max-w-xl text-lg text-pretty text-muted-foreground">
+          DEALAN gives single-family and small multifamily investors a transparent, accurate underwriting workflow.
+        </p>
+        <div className="mt-8 flex justify-center gap-3">
+          <Button size="lg" asChild>
+            <Link href={signedIn ? "/analyzer" : "/register"}>
+              Analyze a property <ArrowRight />
+            </Link>
+          </Button>
+          {!signedIn && (
+            <Button size="lg" variant="outline" asChild><Link href="/login">Try the demo</Link></Button>
+          )}
         </div>
-      </main>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-20 sm:grid-cols-2 lg:grid-cols-4">
+        {FEATURES.map(({ icon: Icon, title, body }) => (
+          <div key={title} className="rounded-xl border bg-card p-5 shadow-xs">
+            <Icon className="size-5 text-muted-foreground" />
+            <h3 className="mt-3 font-medium">{title}</h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
+          </div>
+        ))}
+      </section>
+
+      <footer className="border-t">
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <Disclaimer />
+        </div>
+      </footer>
     </div>
   );
 }

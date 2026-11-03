@@ -1,0 +1,47 @@
+import type { SettingsRecord } from "@/lib/data/settings";
+import type { DealFormValues } from "@/lib/validation/deal";
+
+/** A blank deal pre-filled with the user's default assumptions from Settings. */
+export function newDealDefaults(s: SettingsRecord): DealFormValues {
+  return {
+    name: "",
+    address: "",
+    city: "",
+    state: "",
+    zip: "",
+    propertyType: "SINGLE_FAMILY",
+    status: "ANALYZING",
+    units: "1",
+    bedrooms: "",
+    bathrooms: "",
+    squareFeet: "",
+    yearBuilt: "",
+    notes: "",
+    purchasePrice: "",
+    closingCosts: "0",
+    rehabCosts: "0",
+    afterRepairValue: "",
+    rehabPlan: null,
+    offerGoals: null,
+    isCashPurchase: false,
+    downPaymentPercent: s.defaultDownPaymentPercent,
+    interestRate: s.defaultInterestRate,
+    loanTermYears: s.defaultLoanTermYears,
+    monthlyRent: "",
+    otherMonthlyIncome: "0",
+    vacancyRate: s.defaultVacancyRate,
+    propertyTaxAnnual: "0",
+    insuranceAnnual: "0",
+    hoaMonthly: "0",
+    utilitiesMonthly: "0",
+    otherMonthlyExpenses: "0",
+    maintenancePercent: s.defaultMaintenancePercent,
+    capexPercent: s.defaultCapexPercent,
+    managementPercent: s.defaultManagementPercent,
+    appreciationRate: s.defaultAppreciationRate,
+    rentGrowthRate: s.defaultRentGrowthRate,
+    expenseGrowthRate: s.defaultExpenseGrowthRate,
+    sellingCostPercent: s.defaultSellingCostPercent,
+    holdingPeriodYears: s.defaultHoldingPeriodYears,
+  };
+}
