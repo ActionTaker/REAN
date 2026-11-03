@@ -15,6 +15,8 @@ import { BrrrrMetrics, BrrrrSteps, FlipMetrics, FlipStatement, StrategyOfferTool
 import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type StrategyValue } from "@/lib/strategy";
 import { DealTools } from "./deal-tools";
 import { AduPanel } from "./adu-panels";
+import { AfterTaxSummary } from "./tax-panel";
+import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
 import { runAdu } from "@/lib/adu";
 import type { DealAnalysis } from "@/lib/finance";
 import { REHAB_SCOPES, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
@@ -47,24 +49,28 @@ export function PropertyAnalysis({
   record,
   criteria,
   acquisitionFirst = false,
+  tax = DEFAULT_TAX_ASSUMPTIONS,
 }: {
   record: PropertyRecord;
   criteria: InvestmentCriteria;
+  tax?: TaxAssumptions;
   /** Report layout: Acquisition & financing → Cash flow statement → Year-1 return (also the printed order). */
   acquisitionFirst?: boolean;
 }) {
   if (record.strategy && record.strategy !== "BUY_HOLD") return <StrategyPropertyAnalysis record={record} criteria={criteria} />;
-  return <BuyHoldAnalysis record={record} criteria={criteria} acquisitionFirst={acquisitionFirst} />;
+  return <BuyHoldAnalysis record={record} criteria={criteria} acquisitionFirst={acquisitionFirst} tax={tax} />;
 }
 
 function BuyHoldAnalysis({
   record,
   criteria,
   acquisitionFirst,
+  tax,
 }: {
   record: PropertyRecord;
   criteria: InvestmentCriteria;
   acquisitionFirst: boolean;
+  tax: TaxAssumptions;
 }) {
   const a = useMemo(() => analyzeDeal(recordToInputs(record)), [record]);
   const savedGoals = useMemo(() => resolveOfferGoals(record.offerGoals, criteria), [record.offerGoals, criteria]);
@@ -118,9 +124,14 @@ function BuyHoldAnalysis({
       )}
 
       <div className="grid gap-5 lg:grid-cols-5">
-        <Panel title="Investment ratios" description="Screening metrics and rules of thumb" className="lg:col-span-2 print:break-inside-avoid">
-          <RatioSummary a={a} />
-        </Panel>
+        <div className="space-y-5 lg:col-span-2">
+          <Panel title="Investment ratios" description="Screening metrics and rules of thumb" className="print:break-inside-avoid">
+            <RatioSummary a={a} />
+          </Panel>
+          <Panel title="After-tax cash flow" description="Year 1, with depreciation and the interest deduction" className="print:break-inside-avoid">
+            <AfterTaxSummary a={a} tax={tax} />
+          </Panel>
+        </div>
         <Panel title="Assumptions used" description="Every input behind these numbers" className="lg:col-span-3 print:break-inside-avoid">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             {[

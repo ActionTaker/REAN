@@ -14,7 +14,7 @@ Working list for continuous development. Each item ships as its own commit with 
 
 ## Next
 - [ ] Rent roll for 2–4 unit properties (rent per unit)
-- [ ] After-tax view: depreciation (27.5 yr) and interest deduction
+- [x] After-tax view: depreciation (27.5 yr) and interest deduction (Settings: tax rate, building share)
 - [x] "Analyze as BRRRR / Flip" — copies a saved deal under another strategy (actions menu)
 - [ ] Zillow values entered by hand (Zestimate / Rent Zestimate) with source label
 

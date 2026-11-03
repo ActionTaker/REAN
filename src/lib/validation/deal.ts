@@ -208,6 +208,8 @@ export const settingsSchema = z.object({
   defaultRefiLtvPct: percent("Refinance LTV"),
   defaultRefiRate: percent("Refinance rate", 30),
   defaultFlipSellingCostPct: percent("Selling costs", 25),
+  taxRatePct: percent("Tax rate", 60),
+  buildingValuePct: percent("Building share"),
 });
 
 export type SettingsFormValues = z.input<typeof settingsSchema>;

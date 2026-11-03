@@ -7,6 +7,7 @@ import { DealForm } from "@/components/deal/deal-form";
 import { ensureCoordinates, getProperty } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { recordToFormValues } from "@/lib/property-mapping";
+import { taxAssumptionsFrom } from "@/lib/new-deal-defaults";
 
 export const metadata: Metadata = { title: "Edit analysis" };
 
@@ -24,7 +25,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         </Link>
         <PageHeader className="mt-2" title={`Edit · ${property.name}`} description="Adjust any assumption and see the impact before saving." />
       </div>
-      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} isSample={property.isSample} initialMarketData={marketData} />
+      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} tax={taxAssumptionsFrom(settings)} isSample={property.isSample} initialMarketData={marketData} />
     </div>
   );
 }

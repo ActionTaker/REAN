@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "UserSettings" ADD COLUMN     "buildingValuePct" DECIMAL(9,4) NOT NULL DEFAULT 80,
+ADD COLUMN     "taxRatePct" DECIMAL(9,4) NOT NULL DEFAULT 24;

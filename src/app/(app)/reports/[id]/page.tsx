@@ -12,6 +12,7 @@ import { formatAddress, recordPhotoLocation } from "@/lib/property-mapping";
 import { PropertyPhoto } from "@/components/deal/property-photo";
 import { dealStatusLabel, propertyTypeLabel } from "@/lib/constants";
 import { PrintButton } from "../print-button";
+import { taxAssumptionsFrom } from "@/lib/new-deal-defaults";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const p = await getProperty((await params).id);
@@ -79,7 +80,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           ))}
         </dl>
 
-        <PropertyAnalysis record={p} criteria={settings} acquisitionFirst />
+        <PropertyAnalysis record={p} criteria={settings} acquisitionFirst tax={taxAssumptionsFrom(settings)} />
       </article>
     </div>
   );

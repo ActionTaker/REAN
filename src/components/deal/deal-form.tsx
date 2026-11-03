@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calculator, CheckCircle2, Circle, Info, ListChecks, Loader2, Save } from "lucide-react";
+import { Calculator, CheckCircle2, ChevronRight, Circle, Info, ListChecks, Loader2, Save } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,8 @@ import { AduMetrics, AduSection } from "./adu-panels";
 import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type CostEstimate } from "@/lib/estimates/costs";
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
+import { AfterTaxSummary } from "./tax-panel";
+import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
 import { AddressLookup } from "./address-lookup";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import { formatAddress } from "@/lib/property-mapping";
@@ -63,9 +65,11 @@ interface Props {
   isSample?: boolean;
   /** Market data saved with this deal (edit page), so the Comps & ARV panel opens without a new lookup. */
   initialMarketData?: PropertyLookup | null;
+  /** After-tax estimate assumptions (Settings). */
+  tax?: TaxAssumptions;
 }
 
-export function DealForm({ propertyId, defaultValues, criteria, isSample, initialMarketData = null }: Props) {
+export function DealForm({ propertyId, defaultValues, criteria, isSample, initialMarketData = null, tax = DEFAULT_TAX_ASSUMPTIONS }: Props) {
   const router = useRouter();
   const [saving, startSaving] = useTransition();
   const form = useForm<DealFormValues, unknown, DealFormOutput>({
@@ -635,6 +639,12 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           </TabsContent>
           <TabsContent value="cashflow" className="mt-3 rounded-xl border bg-card p-2 shadow-xs">
             <CashFlowStatement a={analysis} />
+            <details className="group mt-2 border-t px-2 pt-2">
+              <summary className="flex cursor-pointer list-none items-center gap-1 py-1 text-xs font-medium text-muted-foreground group-open:text-foreground">
+                <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" /> After tax (depreciation &amp; interest)
+              </summary>
+              <AfterTaxSummary a={analysis} tax={tax} />
+            </details>
           </TabsContent>
           <TabsContent value="longterm" className="mt-3 space-y-4">
             <SaleSummary a={analysis} />

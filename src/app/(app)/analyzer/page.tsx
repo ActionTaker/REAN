@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/common/page-header";
 import { DealForm } from "@/components/deal/deal-form";
 import { getSettings } from "@/lib/data/settings";
-import { newDealDefaults } from "@/lib/new-deal-defaults";
+import { newDealDefaults, taxAssumptionsFrom } from "@/lib/new-deal-defaults";
 
 export const metadata: Metadata = { title: "Deal Analyzer" };
 
@@ -14,7 +14,7 @@ export default async function AnalyzerPage() {
         title="Deal Analyzer"
         description="Enter the property's numbers. Results update instantly; defaults come from your Settings."
       />
-      <DealForm propertyId={null} defaultValues={newDealDefaults(settings)} criteria={settings} />
+      <DealForm propertyId={null} defaultValues={newDealDefaults(settings)} criteria={settings} tax={taxAssumptionsFrom(settings)} />
     </div>
   );
 }

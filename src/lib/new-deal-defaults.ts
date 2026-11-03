@@ -1,6 +1,12 @@
 import type { SettingsRecord } from "@/lib/data/settings";
 import type { DealFormValues } from "@/lib/validation/deal";
+import type { TaxAssumptions } from "@/lib/finance/tax";
 import { defaultStrategyInputs, type SavedStrategyInputs } from "@/lib/strategy";
+
+/** After-tax estimate assumptions from Settings. */
+export function taxAssumptionsFrom(s: SettingsRecord): TaxAssumptions {
+  return { taxRatePct: s.taxRatePct, buildingValuePct: s.buildingValuePct };
+}
 
 /** BRRRR / Flip inputs for a new deal, from the user's Settings. */
 export function strategyDefaultsFrom(s: SettingsRecord): SavedStrategyInputs {

@@ -157,6 +157,21 @@ export function SettingsForm({ email, defaultValues }: { email: string; defaultV
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Taxes (after-tax estimate)</CardTitle>
+          <CardDescription className="text-xs">
+            Used for the after-tax cash flow on Buy &amp; Hold deals: 27.5-year depreciation of the building and the mortgage interest deduction.
+            A rough federal estimate — not tax advice.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          {num("taxRatePct", "Marginal tax rate", "%")}
+          {num("buildingValuePct", "Building share of price", "%")}
+          <p className="self-end text-[11px] leading-snug text-muted-foreground sm:pb-2">Land isn&apos;t depreciable. County assessments often split land vs. building — 75–85% building is typical.</p>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
         <Button type="submit" disabled={pending || !isDirty}>
           {pending && <Loader2 className="animate-spin" />} Save settings
