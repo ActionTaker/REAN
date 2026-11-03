@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, GitCompareArrows, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, GitCompareArrows, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,30 @@ export interface PropertyRow {
 }
 
 type SortKey = keyof PropertyRow["sort"];
+
+const RATING_LABEL: Record<DealRating, string> = { strong: "Meets criteria", moderate: "Partial", weak: "Below criteria", negative: "Negative cash flow" };
+
+/** The rows on screen (filters and sort applied) as a CSV download. */
+function downloadCsv(rows: PropertyRow[]) {
+  const head = ["Name", "Strategy", "Status", "Location", "Type", "Units", "Price", "Cash invested", "Cash flow / mo (or flip profit)", "Cap rate", "Cash-on-cash (or ROI)", "DSCR", "Criteria", "Sample", "Updated"];
+  const cell = (v: string | number | boolean) => {
+    const t = String(v);
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const lines = rows.map((r) =>
+    [
+      r.name, STRATEGIES.find((s) => s.value === r.strategy)?.label ?? r.strategy, DEAL_STATUSES.find((s) => s.value === r.status)?.label ?? r.status,
+      r.location, r.type, r.units, r.display.price, r.display.cashInvested, r.display.cashFlow, r.display.capRate, r.display.coc, r.display.dscr,
+      RATING_LABEL[r.rating], r.isSample ? "yes" : "", r.updatedAt.slice(0, 10),
+    ].map(cell).join(","),
+  );
+  const blob = new Blob(["\uFEFF" + [head.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `dealan-properties-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 type SortState = { key: SortKey; dir: 1 | -1 };
 
 function SortHead({ k, sort, onSort, children, className }: {
@@ -103,6 +127,9 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 sm:ml-auto">
+          <Button size="sm" variant="ghost" onClick={() => downloadCsv(visible)} disabled={visible.length === 0} title="Download the properties shown as a spreadsheet">
+            <Download /> CSV
+          </Button>
           {selected.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => setSelected([])}>Clear</Button>
           )}
