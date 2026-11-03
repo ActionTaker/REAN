@@ -49,6 +49,7 @@ import { AduMetrics, AduSection } from "./adu-panels";
 import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type CostEstimate } from "@/lib/estimates/costs";
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
+import { SectionNav } from "./section-nav";
 import { AfterTaxSummary } from "./tax-panel";
 import { RentRollEditor } from "./rent-roll";
 import { OtherEstimatesSection } from "./other-estimates";
@@ -304,6 +305,18 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <SectionNav
+        items={[
+          { id: sectionId("Property"), label: "Property" },
+          { id: sectionId("Purchase"), label: "Purchase" },
+          { id: "f-financing", label: strategy === "BUY_HOLD" ? "Financing" : strategy === "BRRRR" ? "Financing & refi" : "Financing & sale" },
+          ...(strategy !== "FLIP" ? [{ id: sectionId("Rental income"), label: "Income" }] : []),
+          { id: sectionId(strategy === "FLIP" ? "Carrying costs" : "Operating expenses"), label: strategy === "FLIP" ? "Carrying costs" : "Expenses" },
+          ...(strategy !== "FLIP" ? [{ id: "f-adu", label: "ADU" }] : []),
+          { id: "f-estimates", label: "Outside estimates" },
+          { id: "f-offer", label: "Max offer" },
+        ]}
+      />
       {/* Own grid so the sticky Live analysis panel stops at the end of the inputs
           instead of sliding over the full-width Offer & risk card below. */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
@@ -415,6 +428,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           {financingFields}
         </Section>
         ) : (
+          <div id="f-financing" className="scroll-mt-28 space-y-6">
           <StrategyInputCards
             strategy={strategy}
             s={sSaved}
@@ -423,6 +437,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             conventionalFields={financingFields}
             arv={dec(liveInputs.afterRepairValue as string).gt(0) ? dec(liveInputs.afterRepairValue as string) : null}
           />
+          </div>
         )}
 
         {strategy !== "FLIP" && (
@@ -538,6 +553,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         )}
 
         {strategy !== "FLIP" && (
+          <div id="f-adu" className="scroll-mt-28">
           <AduSection
             value={aduSaved}
             onChange={setAdu}
@@ -552,8 +568,10 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             rentSuggestion={aduRentSuggestion}
             dealCapRate={rentalView.capRate}
           />
+          </div>
         )}
 
+        <div id="f-estimates" className="scroll-mt-28">
         <OtherEstimatesSection
           rows={(values.otherEstimates ?? []) as OtherEstimate[]}
           onChange={(rows) => setValue("otherEstimates", (rows.length ? rows : null) as never, { shouldDirty: true })}
@@ -569,6 +587,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             toast.success(`Rent set to ${formatCurrency(dec(v))}/mo`);
           }}
         />
+        </div>
 
         {marketData && (
           <CompsArvSheet
@@ -627,7 +646,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
       </div>
 
       {/* ── Live results ───────────────────────────────────────────────── */}
-      <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-2">
+      <aside className="space-y-4 xl:sticky xl:top-28 xl:max-h-[calc(100vh-8rem)] xl:self-start xl:overflow-y-auto xl:pb-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Live analysis</h2>
           <span className="text-xs text-muted-foreground">updates as you type</span>
@@ -763,12 +782,15 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
       </div>
 
       {strategy === "BUY_HOLD" ? (
+        <div id="f-offer" className="scroll-mt-28">
         <DealTools
           inputs={liveInputs}
           goals={offerGoals}
           onGoalsChange={(g) => setValue("offerGoals", g as never, { shouldDirty: true })}
         />
+        </div>
       ) : (
+        <div id="f-offer" className="scroll-mt-28">
         <StrategyOfferTools
           strategy={strategy}
           inputs={liveInputs}
@@ -776,14 +798,18 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           goals={sSaved.goals}
           onGoalsChange={(g) => setStrategyInputs({ ...sSaved, goals: g })}
         />
+        </div>
       )}
     </form>
   );
 }
 
+/** Section anchor for the jump bar: "Rental income" → "f-rental-income". */
+const sectionId = (title: string) => `f-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+
 function Section({ title, description, action, children }: { title: string; description?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Card className="gap-4">
+    <Card id={sectionId(title)} className="scroll-mt-28 gap-4">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div className="space-y-1">
           <CardTitle className="text-sm">{title}</CardTitle>

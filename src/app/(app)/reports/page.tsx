@@ -45,7 +45,7 @@ export default async function ReportsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate font-medium group-hover:underline">{r.name} — Investment Analysis</p>
+                  <p className="truncate font-medium group-hover:underline">{r.name}</p>
                   <StrategyBadge strategy={r.strategy} />
                   {r.isSample && <SampleBadge />}
                 </div>
