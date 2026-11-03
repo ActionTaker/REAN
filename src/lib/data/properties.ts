@@ -9,6 +9,7 @@ import type { PropertyLookup } from "@/lib/property-data/types";
 import type { RehabPlan } from "@/lib/estimates/rehab";
 import type { OfferGoals } from "@/lib/offer-goals";
 import type { SavedStrategyInputs } from "@/lib/strategy";
+import type { SavedAduInputs } from "@/lib/adu";
 import type { ArvAnalysis } from "@/lib/property-data/arv-analysis";
 
 const s = (v: { toString(): string } | null) => (v === null ? null : v.toString());
@@ -43,6 +44,7 @@ function toRecord(p: Property): PropertyRecord {
     rentAnalysis: (p.rentAnalysis as ArvAnalysis | null) ?? null,
     strategy: p.strategy,
     strategyInputs: (p.strategyInputs as SavedStrategyInputs | null) ?? null,
+    aduInputs: (p.aduInputs as SavedAduInputs | null) ?? null,
     isCashPurchase: p.isCashPurchase,
     downPaymentPercent: p.downPaymentPercent.toString(),
     interestRate: p.interestRate.toString(),

@@ -101,6 +101,8 @@ model Property {
   strategy  InvestmentStrategy @default(BUY_HOLD)
   /// BRRRR / Flip inputs and goals (hold months, acquisition loan, refinance, sale) — see src/lib/strategy.ts.
   strategyInputs Json?
+  /// ADU add-on scenario (type, size, cost, rent, financing) — null = no ADU. See src/lib/adu.ts.
+  aduInputs Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

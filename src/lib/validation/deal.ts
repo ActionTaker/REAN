@@ -95,6 +95,19 @@ export const strategyInputsSchema = z.object({
   }),
 });
 
+const money0 = z.string().trim().max(20).regex(/^[\d,$.\s]*$/, "Enter a number");
+/** ADU scenario (see src/lib/adu.ts). Lenient strings; blanks count as 0. */
+export const aduInputsSchema = z.object({
+  type: z.enum(["detached", "attached", "garage", "jadu"]),
+  squareFeet: num,
+  costPerSqft: money0,
+  softCosts: money0,
+  monthlyRent: money0,
+  buildMonths: num,
+  capRate: num,
+  financing: z.object({ type: z.enum(["cash", "loan"]), financedPct: num, rate: num, termYears: num }),
+});
+
 export const dealSchema = z
   .object({
     name: z.string().trim().min(1, "Give this deal a name").max(120),
@@ -120,6 +133,7 @@ export const dealSchema = z
     rentAnalysis: arvAnalysisSchema.nullable().optional().default(null),
     strategy: z.enum(["BUY_HOLD", "BRRRR", "FLIP"]).optional().default("BUY_HOLD"),
     strategyInputs: strategyInputsSchema.nullable().optional().default(null),
+    aduInputs: aduInputsSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),

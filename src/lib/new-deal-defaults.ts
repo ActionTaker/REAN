@@ -27,6 +27,7 @@ export function newDealDefaults(s: SettingsRecord): DealFormValues {
     rentAnalysis: null,
     strategy: "BUY_HOLD",
     strategyInputs: null,
+    aduInputs: null,
     isCashPurchase: false,
     downPaymentPercent: s.defaultDownPaymentPercent,
     interestRate: s.defaultInterestRate,

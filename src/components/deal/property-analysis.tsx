@@ -14,6 +14,9 @@ import { MarketDataSummary } from "./market-data";
 import { BrrrrMetrics, BrrrrSteps, FlipMetrics, FlipStatement, StrategyOfferTools, rateStrategy, strategyChecks } from "./strategy-panels";
 import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type StrategyValue } from "@/lib/strategy";
 import { DealTools } from "./deal-tools";
+import { AduPanel } from "./adu-panels";
+import { runAdu } from "@/lib/adu";
+import type { DealAnalysis } from "@/lib/finance";
 import { REHAB_SCOPES, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import {
   AcquisitionSummary,
@@ -156,6 +159,8 @@ function BuyHoldAnalysis({
 
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
+      <SavedAdu record={record} analysis={a} />
+
       {record.marketData && (
         <Panel
           title="Market data"
@@ -186,6 +191,12 @@ function BuyHoldAnalysis({
       <Disclaimer />
     </div>
   );
+}
+
+function SavedAdu({ record, analysis }: { record: PropertyRecord; analysis: DealAnalysis }) {
+  const r = useMemo(() => (record.aduInputs ? runAdu(record.aduInputs, recordToInputs(record), analysis, record.state) : null), [record, analysis]);
+  if (!r || !record.aduInputs) return null;
+  return <AduPanel r={r} s={record.aduInputs} stateCode={record.state?.toUpperCase() ?? null} />;
 }
 
 function RehabBudget({ plan, squareFeet }: { plan: RehabPlan; squareFeet: number | null }) {
@@ -348,6 +359,8 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
       />
 
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
+
+      {brrrr && <SavedAdu record={record} analysis={brrrr.rental} />}
 
       {record.marketData && (
         <Panel title="Market data" description="Automated estimates captured when this deal was analyzed" className="print:break-inside-avoid">

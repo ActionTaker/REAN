@@ -11,3 +11,4 @@ export * from "./solver";
 export * from "./stress";
 export * from "./strategies";
 export * from "./strategy-tools";
+export * from "./adu";
