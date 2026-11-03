@@ -279,3 +279,32 @@ test("deal is rated against its own goals", async () => {
   const bad = { ...equityOnly, equity: { enabled: true, target: "abc" } };
   assert.equal(rateAgainstGoals(a, bad).checks[0].passed, null);
 });
+
+test("withPrice: fixed-dollar down payment and reassessed property tax", async () => {
+  const { withPrice, maxPriceFor } = await import("./solver");
+  const deal = {
+    purchasePrice: "200000", closingCosts: "6000", rehabCosts: "0", afterRepairValue: null,
+    isCashPurchase: false, downPaymentPercent: "25", interestRate: "7", loanTermYears: 30,
+    units: 1, squareFeet: null, monthlyRent: "1900", otherMonthlyIncome: "0", vacancyRate: "5",
+    propertyTaxAnnual: "2400", insuranceAnnual: "1200", hoaMonthly: "0", utilitiesMonthly: "0", otherMonthlyExpenses: "0",
+    maintenancePercent: "5", capexPercent: "5", managementPercent: "8",
+    appreciationRate: "3", rentGrowthRate: "3", expenseGrowthRate: "2.5", sellingCostPercent: "6", holdingPeriodYears: 30,
+  };
+  const { dec: d } = await import("./decimal");
+  // Default: 25% of the new price, tax unchanged.
+  const a = withPrice(deal as never, d(160000));
+  assert.equal(a.downPaymentPercent, "25");
+  assert.equal(a.propertyTaxAnnual, "2400");
+  assert.equal(a.closingCosts, "4800");
+  // Same $50,000 down → 31.25% of $160,000; tax 1.2% of price → $1,920.
+  const b = withPrice(deal as never, d(160000), { downPayment: "amount", propertyTax: "reassess" });
+  assert.equal(b.downPaymentPercent, "31.25");
+  assert.equal(b.propertyTaxAnnual, "1920");
+  // Below $50,000 it's all cash: capped at 100%.
+  assert.equal(withPrice(deal as never, d(40000), { downPayment: "amount" }).downPaymentPercent, "100");
+  // Bigger down payment at lower prices and lower taxes both help cash flow → a higher max price than the default.
+  const goal = { kind: "cashFlow" as const, minMonthly: d(200) };
+  const base = maxPriceFor(deal as never, goal).price!;
+  assert.ok(maxPriceFor(deal as never, goal, { propertyTax: "reassess" }).price!.gt(base));
+  assert.ok(maxPriceFor(deal as never, goal, { downPayment: "amount" }).price!.gt(base));
+});

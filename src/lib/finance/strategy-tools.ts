@@ -1,26 +1,26 @@
 import { D, dec, pct, type DecimalLike } from "./decimal";
-import { maxPriceWhere, type MaxPriceResult } from "./solver";
+import { maxPriceWhere, type MaxPriceResult, type RepriceOptions } from "./solver";
 import { analyzeBrrrr, analyzeFlip, type StrategyInputs } from "./strategies";
 import type { DealInputs } from "./types";
 
 /** Max offer + stress tests for BRRRR and Flip (Buy & Hold uses solver.ts / stress.ts). */
 
-export function brrrrMaxPrice(input: DealInputs, s: StrategyInputs, maxCashLeft: DecimalLike): MaxPriceResult {
+export function brrrrMaxPrice(input: DealInputs, s: StrategyInputs, maxCashLeft: DecimalLike, opts: RepriceOptions = {}): MaxPriceResult {
   const cap = dec(maxCashLeft);
-  return maxPriceWhere(input, (i) => analyzeBrrrr(i, s, { yearOneOnly: true }).cashLeftInDeal.lte(cap));
+  return maxPriceWhere(input, (i) => analyzeBrrrr(i, s, { yearOneOnly: true }).cashLeftInDeal.lte(cap), opts);
 }
 
-export function flipMaxPriceForProfit(input: DealInputs, s: StrategyInputs, minProfit: DecimalLike): MaxPriceResult {
+export function flipMaxPriceForProfit(input: DealInputs, s: StrategyInputs, minProfit: DecimalLike, opts: RepriceOptions = {}): MaxPriceResult {
   const floor = dec(minProfit);
-  return maxPriceWhere(input, (i) => analyzeFlip(i, s).profit.gte(floor));
+  return maxPriceWhere(input, (i) => analyzeFlip(i, s).profit.gte(floor), opts);
 }
 
-export function flipMaxPriceForRoi(input: DealInputs, s: StrategyInputs, minRoiPercent: DecimalLike): MaxPriceResult {
+export function flipMaxPriceForRoi(input: DealInputs, s: StrategyInputs, minRoiPercent: DecimalLike, opts: RepriceOptions = {}): MaxPriceResult {
   const floor = pct(minRoiPercent);
   return maxPriceWhere(input, (i) => {
     const r = analyzeFlip(i, s).roi;
     return r !== null && r.gte(floor);
-  });
+  }, opts);
 }
 
 

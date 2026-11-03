@@ -15,6 +15,7 @@ import {
   stressTest,
   type DealInputs,
   type MaxPriceResult,
+  type RepriceOptions,
 } from "@/lib/finance";
 import {
   OFFER_GOALS,
@@ -23,8 +24,10 @@ import {
   currentStrategy,
   parseTarget,
   toPriceGoal,
+  DEFAULT_OFFER_OPTIONS,
   type OfferGoalKey,
   type OfferGoals,
+  type OfferOptions,
 } from "@/lib/offer-goals";
 import { NumberInput } from "./number-input";
 
@@ -34,7 +37,7 @@ type RowState =
   | { status: "needsArv" }
   | { status: "na"; reason: string };
 
-function solve(inputs: DealInputs, goals: OfferGoals): Record<OfferGoalKey, RowState> {
+function solve(inputs: DealInputs, goals: OfferGoals, opts: RepriceOptions): Record<OfferGoalKey, RowState> {
   const hasArv = dec(inputs.afterRepairValue).gt(0);
   const out = {} as Record<OfferGoalKey, RowState>;
   for (const g of OFFER_GOALS) {
@@ -47,7 +50,7 @@ function solve(inputs: DealInputs, goals: OfferGoals): Record<OfferGoalKey, RowS
       out[g.key] = { status: "ok", result: { price: m.gt(0) ? m.div(500).floor().times(500) : null, unbounded: false } };
     } else {
       const t = parseTarget(goals[g.key].target);
-      out[g.key] = t ? { status: "ok", result: maxPriceFor(inputs, toPriceGoal(g.key, t)) } : { status: "invalid" };
+      out[g.key] = t ? { status: "ok", result: maxPriceFor(inputs, toPriceGoal(g.key, t), opts) } : { status: "invalid" };
     }
   }
   return out;
@@ -86,7 +89,7 @@ export function DealTools({
         ) : (
           <div className="space-y-8">
             <MaxOffer inputs={deferred} goals={goals} onGoalsChange={onGoalsChange} />
-            <StressTest inputs={deferred} />
+            <StressTest inputs={deferred} opts={goals.options ?? DEFAULT_OFFER_OPTIONS} />
           </div>
         )}
       </CardContent>
@@ -95,7 +98,8 @@ export function DealTools({
 }
 
 function MaxOffer({ inputs, goals, onGoalsChange }: { inputs: DealInputs; goals: OfferGoals; onGoalsChange: (g: OfferGoals) => void }) {
-  const states = useMemo(() => solve(inputs, goals), [inputs, goals]);
+  const options = goals.options ?? DEFAULT_OFFER_OPTIONS;
+  const states = useMemo(() => solve(inputs, goals, goals.options ?? DEFAULT_OFFER_OPTIONS), [inputs, goals]);
   const price = dec(inputs.purchasePrice);
   const strategy = currentStrategy(goals);
   const setGoal = (key: OfferGoalKey, patch: Partial<OfferGoals[OfferGoalKey]>) =>
@@ -149,6 +153,8 @@ function MaxOffer({ inputs, goals, onGoalsChange }: { inputs: DealInputs; goals:
           {strategy !== "custom" ? STRATEGIES.find((s) => s.value === strategy)?.description : "Your own mix of goals"}
         </span>
       </div>
+
+      <RepriceChoices inputs={inputs} options={options} onChange={(o) => onGoalsChange({ ...goals, options: o })} />
 
       <div
         className={cn(
@@ -262,16 +268,78 @@ function MaxOffer({ inputs, goals, onGoalsChange }: { inputs: DealInputs; goals:
         </table>
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Each max price keeps rent, expenses, rehab and loan terms fixed and lets closing costs scale with price. Property taxes aren&apos;t
-        re-assessed — in states that reassess on sale, check taxes at your offer price. Rounded down to $500. Equity and the 70% rule need an
-        after-repair value.
+        Each max price keeps rent, insurance, other expenses, rehab, the interest rate and loan term fixed, and lets closing costs scale with
+        price. Down payment and property tax follow the choices above. Rounded down to $500. Equity and the 70% rule need an after-repair
+        value.
       </p>
     </div>
   );
 }
 
-function StressTest({ inputs }: { inputs: DealInputs }) {
-  const s = useMemo(() => stressTest(inputs), [inputs]);
+/** How the down payment and property tax move as the price is searched. */
+function RepriceChoices({ inputs, options, onChange }: { inputs: DealInputs; options: OfferOptions; onChange: (o: OfferOptions) => void }) {
+  const price = dec(inputs.purchasePrice);
+  const downDollars = price.times(dec(inputs.downPaymentPercent)).div(100);
+  const tax = dec(inputs.propertyTaxAnnual);
+  const taxPct = price.gt(0) ? tax.div(price).times(100) : null;
+  const choice = <K extends keyof OfferOptions>(
+    k: K,
+    label: string,
+    items: { value: OfferOptions[K]; label: string; hint: string }[],
+  ) => (
+    <div className="space-y-1.5">
+      <div className="text-xs font-medium">{label}</div>
+      <div className="inline-flex w-full rounded-lg border p-0.5 sm:w-auto" role="radiogroup" aria-label={label}>
+        {items.map((it) => (
+          <button
+            key={it.value}
+            type="button"
+            role="radio"
+            aria-checked={options[k] === it.value}
+            onClick={() => onChange({ ...options, [k]: it.value })}
+            className={cn(
+              "flex-1 rounded-md px-2.5 py-1 text-xs sm:flex-none",
+              options[k] === it.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{items.find((it) => it.value === options[k])?.hint}</p>
+    </div>
+  );
+  return (
+    <div className="grid gap-4 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
+      {inputs.isCashPurchase ? (
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium">Down payment at other prices</div>
+          <p className="text-[11px] text-muted-foreground">All-cash purchase — the whole price is paid in cash at every price.</p>
+        </div>
+      ) : (
+        choice("downPayment", "Down payment at other prices", [
+          { value: "percent", label: `Same ${String(inputs.downPaymentPercent)}%`, hint: "Cheaper price → smaller down payment and smaller loan, same percentage." },
+          {
+            value: "amount",
+            label: `Same ${formatCurrency(downDollars)}`,
+            hint: `You bring ${formatCurrency(downDollars)} at any price — a cheaper price means a bigger share down and a smaller loan.`,
+          },
+        ])
+      )}
+      {choice("propertyTax", "Property tax at other prices", [
+        { value: "fixed", label: `Stays ${formatCurrency(tax)}/yr`, hint: "For states that don't reassess on sale, or a tax bill you already know." },
+        {
+          value: "reassess",
+          label: taxPct ? `Follows price (${taxPct.toDecimalPlaces(2).toString()}%)` : "Follows price",
+          hint: "For states that reassess at sale (e.g. California): tax stays the same share of the price you pay.",
+        },
+      ])}
+    </div>
+  );
+}
+
+function StressTest({ inputs, opts }: { inputs: DealInputs; opts: RepriceOptions }) {
+  const s = useMemo(() => stressTest(inputs, opts), [inputs, opts]);
   const price = dec(inputs.purchasePrice);
   const breakEven = s.combinedBreakEvenPrice.price;
   const rows = [...s.rows, s.combined];

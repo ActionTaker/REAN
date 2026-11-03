@@ -59,6 +59,7 @@ export const offerGoalsSchema = z.object({
   dscr: goal,
   equity: goal,
   seventy: goal,
+  options: z.object({ downPayment: z.enum(["percent", "amount"]), propertyTax: z.enum(["fixed", "reassess"]) }).optional(),
 });
 
 /** Comps & ARV tool state saved with a deal. */

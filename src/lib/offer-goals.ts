@@ -24,7 +24,14 @@ export const OFFER_GOALS: readonly { key: OfferGoalKey; label: string; unit: Goa
 ];
 
 export type OfferGoalKey = "breakEven" | "cashFlowPerUnit" | "cashOnCash" | "capRate" | "dscr" | "equity" | "seventy";
-export type OfferGoals = Record<OfferGoalKey, { enabled: boolean; target: string }>;
+/** How the rest of the deal moves while the max price is searched (see RepriceOptions in finance/solver). */
+export interface OfferOptions {
+  downPayment: "percent" | "amount";
+  propertyTax: "fixed" | "reassess";
+}
+export const DEFAULT_OFFER_OPTIONS: OfferOptions = { downPayment: "percent", propertyTax: "fixed" };
+
+export type OfferGoals = Record<OfferGoalKey, { enabled: boolean; target: string }> & { options?: OfferOptions };
 
 export const STRATEGIES = [
   {
@@ -68,12 +75,13 @@ export function defaultOfferGoals(c: InvestmentCriteria): OfferGoals {
 export function resolveOfferGoals(saved: Partial<OfferGoals> | null | undefined, c: InvestmentCriteria): OfferGoals {
   const d = defaultOfferGoals(c);
   if (!saved) return d;
-  return Object.fromEntries(OFFER_GOALS.map(({ key }) => [key, { ...d[key], ...saved[key] }])) as OfferGoals;
+  const merged = Object.fromEntries(OFFER_GOALS.map(({ key }) => [key, { ...d[key], ...saved[key] }])) as unknown as OfferGoals;
+  return saved.options ? { ...merged, options: { ...DEFAULT_OFFER_OPTIONS, ...saved.options } } : merged;
 }
 
 export function applyStrategy(goals: OfferGoals, s: Strategy): OfferGoals {
   const on = new Set<string>(STRATEGIES.find((x) => x.value === s)!.enabled);
-  return Object.fromEntries(OFFER_GOALS.map(({ key }) => [key, { ...goals[key], enabled: on.has(key) }])) as OfferGoals;
+  return { ...goals, ...Object.fromEntries(OFFER_GOALS.map(({ key }) => [key, { ...goals[key], enabled: on.has(key) }])) } as OfferGoals;
 }
 
 export function currentStrategy(goals: OfferGoals): Strategy | "custom" {

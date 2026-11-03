@@ -1,6 +1,6 @@
 import { D, dec } from "./decimal";
 import { analyzeDeal } from "./analysis";
-import { maxPriceFor, type MaxPriceResult } from "./solver";
+import { maxPriceFor, type MaxPriceResult, type RepriceOptions } from "./solver";
 import type { DealInputs } from "./types";
 
 /**
@@ -59,13 +59,13 @@ function row(key: string, label: string, i: DealInputs): StressRow {
   return { key, label, monthlyCashFlow: a.monthlyCashFlow, cashOnCash: a.cashOnCash };
 }
 
-export function stressTest(input: DealInputs): StressResult {
+export function stressTest(input: DealInputs, opts: RepriceOptions = {}): StressResult {
   const active = STRESS_SCENARIOS.filter((s) => s.applies?.(input) ?? true);
   const combinedInputs = active.reduce((acc, s) => s.apply(acc), input);
   return {
     base: row("base", "As entered", input),
     rows: active.map((s) => row(s.key, s.label, s.apply(input))),
     combined: row("combined", "All of the above at once", combinedInputs),
-    combinedBreakEvenPrice: maxPriceFor(combinedInputs, { kind: "cashFlow", minMonthly: dec(0) }),
+    combinedBreakEvenPrice: maxPriceFor(combinedInputs, { kind: "cashFlow", minMonthly: dec(0) }, opts),
   };
 }
