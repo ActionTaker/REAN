@@ -45,7 +45,7 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
         "grid gap-3",
         columns === 2 && "grid-cols-2",
         columns === 3 && "grid-cols-2 sm:grid-cols-3",
-        // 8 cards with an ARV → 4 per row on wide screens so rows stay full.
+        // 6 cards + a two-column equity card with an ARV → 4 per row on wide screens so rows stay full.
         columns === 6 && (hasArv ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"),
       )}
     >
@@ -74,28 +74,15 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
         metric={METRICS.dscr}
       />
       {hasArv && (
-        <>
-          <MetricCard
-            label="Equity created"
-            value={money(a.equityCreated)}
-            tone={tone("equity", toneFor(a.equityCreated))}
-            sub={sub("equity", "ARV − (price + closing + rehab)")}
-            metric={METRICS.equityCreated}
-          />
-          <MetricCard
-            label="70% rule max offer"
-            value={money(a.maxOffer70)}
-            tone={a.maxOffer70 && a.purchasePrice.lte(a.maxOffer70) ? "positive" : "negative"}
-            sub={
-              a.maxOffer70
-                ? a.purchasePrice.lte(a.maxOffer70)
-                  ? `Price is ${money(a.maxOffer70.minus(a.purchasePrice))} under`
-                  : `Price is ${money(a.purchasePrice.minus(a.maxOffer70))} over`
-                : undefined
-            }
-            metric={METRICS.maxOffer70}
-          />
-        </>
+        // Spans two columns so the grid stays full: 2-up → a full row; 4-up → completes the second row.
+        <MetricCard
+          label="Equity created"
+          value={money(a.equityCreated)}
+          tone={tone("equity", toneFor(a.equityCreated))}
+          sub={sub("equity", "ARV − (price + closing + rehab)")}
+          metric={METRICS.equityCreated}
+          className={cn(columns !== 3 && "col-span-2")}
+        />
       )}
     </div>
   );
@@ -105,41 +92,20 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
 
 /** Shows each ARV formula with values substituted, so the user can check the arithmetic. */
 export function ArvBreakdown({ a, className }: { a: DealAnalysis; className?: string }) {
-  if (!a.afterRepairValue || !a.equityCreated || !a.maxOffer70) return null;
-  const over = a.purchasePrice.minus(a.maxOffer70);
-  const under70 = !over.gt(0);
+  if (!a.afterRepairValue || !a.equityCreated) return null;
   // Amounts never wrap mid-number; operators may wrap between them in narrow columns.
   const $ = (v: D) => <span className="whitespace-nowrap">{money(v)}</span>;
   return (
-    <div className={cn("@container", className)}>
-      <div className="grid gap-3 @md:grid-cols-2">
-        <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs font-medium">Equity created</span>
-            <span className={cn("num text-base font-semibold whitespace-nowrap", a.equityCreated.isNegative() ? "text-negative" : "text-positive")}>
-              {money(a.equityCreated)}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">Value after repairs minus everything you put in to get there.</p>
-          <div className="num font-mono text-[11px] leading-relaxed text-muted-foreground">
-            ARV {$(a.afterRepairValue)} − (price {$(a.purchasePrice)} + closing {$(a.closingCosts)} + rehab {$(a.rehabCosts)})
-          </div>
-        </div>
-        <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs font-medium">70% rule ceiling</span>
-            <span className="num text-base font-semibold whitespace-nowrap">{money(a.maxOffer70)}</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Flipper rule of thumb: pay no more than 70% of ARV minus rehab.{" "}
-            <span className={cn("font-medium whitespace-nowrap", under70 ? "text-positive" : "text-caution")}>
-              {under70 ? `You're ${money(over.negated())} under` : `You're ${money(over)} over`}
-            </span>
-          </p>
-          <div className="num font-mono text-[11px] leading-relaxed text-muted-foreground">
-            ARV {$(a.afterRepairValue)} × 70% − rehab {$(a.rehabCosts)}
-          </div>
-        </div>
+    <div className={cn("space-y-1.5 rounded-lg border bg-muted/30 p-3", className)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-medium">Equity created</span>
+        <span className={cn("num text-base font-semibold whitespace-nowrap", a.equityCreated.isNegative() ? "text-negative" : "text-positive")}>
+          {money(a.equityCreated)}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">Value after repairs minus everything you put in to get there.</p>
+      <div className="num font-mono text-[11px] leading-relaxed text-muted-foreground">
+        ARV {$(a.afterRepairValue)} − (price {$(a.purchasePrice)} + closing {$(a.closingCosts)} + rehab {$(a.rehabCosts)})
       </div>
     </div>
   );
@@ -365,7 +331,6 @@ export function AcquisitionSummary({ a, interestRate, termYears, isCash }: { a: 
         <>
           <DefRow label="After-repair value" value={money(a.afterRepairValue)} metric={METRICS.afterRepairValue} />
           <DefRow label="Equity created" value={money(a.equityCreated)} metric={METRICS.equityCreated} />
-          <DefRow label="70% rule max offer" value={money(a.maxOffer70)} metric={METRICS.maxOffer70} />
         </>
       )}
       {!isCash && (
