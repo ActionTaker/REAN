@@ -33,6 +33,7 @@ export interface PropertyRecord {
   rehabPlan: RehabPlan | null;
   offerGoals: OfferGoals | null;
   arvAnalysis: ArvAnalysis | null;
+  rentAnalysis: ArvAnalysis | null;
   isCashPurchase: boolean;
   downPaymentPercent: string;
   interestRate: string;
@@ -130,6 +131,7 @@ export function recordToFormValues(r: PropertyRecord): DealFormValues {
     rehabPlan: r.rehabPlan,
     offerGoals: r.offerGoals,
     arvAnalysis: r.arvAnalysis,
+    rentAnalysis: r.rentAnalysis,
     isCashPurchase: r.isCashPurchase,
     loanTermYears: str(r.loanTermYears),
     holdingPeriodYears: str(r.holdingPeriodYears),
@@ -187,6 +189,7 @@ export function formOutputToData(o: DealFormOutput) {
     rehabPlan: o.rehabPlan ? (o.rehabPlan as Prisma.InputJsonValue) : Prisma.DbNull,
     offerGoals: o.offerGoals ? (o.offerGoals as Prisma.InputJsonValue) : Prisma.DbNull,
     arvAnalysis: o.arvAnalysis ? (o.arvAnalysis as Prisma.InputJsonValue) : Prisma.DbNull,
+    rentAnalysis: o.rentAnalysis ? (o.rentAnalysis as Prisma.InputJsonValue) : Prisma.DbNull,
     isCashPurchase: o.isCashPurchase,
     loanTermYears: parseInt(o.loanTermYears, 10),
     holdingPeriodYears: parseInt(o.holdingPeriodYears, 10),
@@ -197,4 +200,11 @@ export function formOutputToData(o: DealFormOutput) {
 export function formatAddress(r: Pick<PropertyRecord, "address" | "city" | "state" | "zip">): string {
   const cityState = [r.city, [r.state, r.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
   return [r.address, cityState].filter(Boolean).join(", ");
+}
+
+/** Where to point the street photo: saved lookup coordinates, else the full street address, else nothing. */
+export function recordPhotoLocation(r: Pick<PropertyRecord, "address" | "city" | "state" | "zip" | "marketData">): string | null {
+  const f = r.marketData?.facts;
+  if (f?.latitude != null && f?.longitude != null) return `${f.latitude},${f.longitude}`;
+  return r.address ? formatAddress(r) : null;
 }

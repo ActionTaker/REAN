@@ -22,7 +22,7 @@ export function AddressLookup({
   onAddressSelected?: (s: AddressSuggestion) => void;
   /** Every successful lookup, so the form can keep the comps for the Comps & ARV panel. */
   onLookup?: (data: PropertyLookup, address: string) => void;
-  onOpenComps?: () => void;
+  onOpenComps?: (mode: "sale" | "rent") => void;
 }) {
   const [address, setAddress] = useState(initialAddress);
   const [data, setData] = useState<PropertyLookup | null>(null);
@@ -80,8 +80,13 @@ export function AddressLookup({
                 Apply to this deal
               </Button>
               {onOpenComps && (data.value?.comparables.length ?? 0) > 0 && (
-                <Button type="button" size="sm" variant="outline" onClick={onOpenComps}>
+                <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("sale")}>
                   Review comps & ARV
+                </Button>
+              )}
+              {onOpenComps && (data.rent?.comparables.length ?? 0) > 0 && (
+                <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("rent")}>
+                  Review rent comps
                 </Button>
               )}
               <Button type="button" size="sm" variant="ghost" onClick={() => run(true)} disabled={pending}>

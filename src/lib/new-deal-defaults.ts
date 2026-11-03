@@ -24,6 +24,7 @@ export function newDealDefaults(s: SettingsRecord): DealFormValues {
     rehabPlan: null,
     offerGoals: null,
     arvAnalysis: null,
+    rentAnalysis: null,
     isCashPurchase: false,
     downPaymentPercent: s.defaultDownPaymentPercent,
     interestRate: s.defaultInterestRate,

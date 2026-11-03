@@ -37,6 +37,16 @@ The Deal Analyzer can fill a deal in from an address using [RentCast](https://ww
 
 Setup: put `RENTCAST_API_KEY=...` in `.env`. Lookups are cached per address for 30 days in `PropertyDataCache`. When a deal is saved, the server re-reads the lookup from that cache and stores it on the deal (`Property.marketData`), so the detail page and report show where the numbers came from. To try the feature without a key, set `PROPERTY_DATA_PROVIDER=demo`. The numbers are synthetic and clearly labelled as such.
 
+## Comps & ARV / Comps & Rent
+
+`src/lib/property-data/comps-arv.ts` uses one appraiser-style engine for both sales comps (ARV) and rental comps (market rent per unit).
+
+- Each comp is **adjusted toward the subject** for size (by default at 50% of the median $/sq ft, since location doesn't grow with the house), bedrooms, bathrooms and age. Comps are then weighted by similarity ÷ (1 + miles away).
+- **ARV** = the weighted average of comps the user marks *renovated*. With no comps marked, it is the upper quartile of adjusted prices, and never below the as-is value. **Rent** = the weighted average of adjusted rents, with a lower-quartile "conservative" option shown alongside.
+- The panel (`comps-arv-sheet.tsx`) is free to use: include or exclude comps, tag condition, edit adjustment percentages, exclude active listings, compare methods, enter a manual value, and see a confidence rating and a distance map. Choices are saved per deal in `Property.arvAnalysis` / `rentAnalysis`.
+
+**Street photos:** `/api/street-view` proxies Google Street View Static (`GOOGLE_MAPS_API_KEY`, kept on the server). It runs the free metadata check first, so addresses with no imagery don't use image quota. Without a key, the UI says so.
+
 ## Cost estimates (rehab, insurance, closing)
 
 `src/lib/estimates/` holds the pure estimators. Each pre-filled value is labelled "Estimate" and stops updating as soon as the user types their own number.

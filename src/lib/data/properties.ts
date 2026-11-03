@@ -38,6 +38,7 @@ function toRecord(p: Property): PropertyRecord {
     rehabPlan: (p.rehabPlan as RehabPlan | null) ?? null,
     offerGoals: (p.offerGoals as OfferGoals | null) ?? null,
     arvAnalysis: (p.arvAnalysis as ArvAnalysis | null) ?? null,
+    rentAnalysis: (p.rentAnalysis as ArvAnalysis | null) ?? null,
     isCashPurchase: p.isCashPurchase,
     downPaymentPercent: p.downPaymentPercent.toString(),
     interestRate: p.interestRate.toString(),

@@ -1,4 +1,4 @@
-import { DEFAULT_ARV_SETTINGS, type ArvMethodKey, type ArvSettings, type CompChoice } from "./comps-arv";
+import { defaultSettingsFor, type ArvMethodKey, type ArvSettings, type CompChoice, type CompsMode } from "./comps-arv";
 
 /** Comps & ARV tool state saved with a deal (client-safe). */
 export interface ArvAnalysis {
@@ -8,6 +8,6 @@ export interface ArvAnalysis {
   method: ArvMethodKey | "manual" | null;
 }
 
-export function emptyArvAnalysis(): ArvAnalysis {
-  return { choices: {}, settings: { ...DEFAULT_ARV_SETTINGS }, method: null };
+export function emptyArvAnalysis(mode: CompsMode = "sale"): ArvAnalysis {
+  return { choices: {}, settings: { ...defaultSettingsFor(mode) }, method: null };
 }

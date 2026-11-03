@@ -7,6 +7,7 @@ import { METRICS, dec, formatCurrency } from "@/lib/finance";
 import { propertyTypeLabel } from "@/lib/constants";
 import type { Comparable, PropertyLookup } from "@/lib/property-data/types";
 import { cn } from "@/lib/utils";
+import { PropertyPhoto } from "./property-photo";
 
 const money = (s: string | null | undefined) => (s ? formatCurrency(dec(s)) : "—");
 
@@ -42,9 +43,12 @@ export function MarketDataSummary({ data, compact }: { data: PropertyLookup; com
         </div>
       )}
 
-      <div>
-        <p className="text-sm font-medium">{data.address.formatted}</p>
-        <p className="text-xs text-muted-foreground">{facts.join(" · ") || "No property details found"}</p>
+      <div className="flex items-start gap-3">
+        <PropertyPhoto location={photoLocation(data)} className="w-40 shrink-0" width={320} height={200} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{data.address.formatted}</p>
+          <p className="text-xs text-muted-foreground">{facts.join(" · ") || "No property details found"}</p>
+        </div>
       </div>
 
       <div className={cn("grid gap-2", compact ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-3")}>
@@ -56,10 +60,14 @@ export function MarketDataSummary({ data, compact }: { data: PropertyLookup; com
         <Tile label="ARV estimate" value={money(data.arv?.estimate)} sub={data.arv?.method ?? "Needs a value estimate"} info={<InfoTip metric={METRICS.afterRepairValue} />} />
         <Tile
           label={data.rent && data.rent.units > 1 ? `Rent (${data.rent.units} units)` : "Market rent"}
-          value={data.rent ? `${money(data.rent.total)}/mo` : "—"}
+          value={
+            data.rent
+              ? `${money(data.rent.compsPerUnit ? dec(data.rent.compsPerUnit).times(Math.max(1, data.rent.units)).toString() : data.rent.total)}/mo`
+              : "—"
+          }
           sub={
             data.rent
-              ? `${data.rent.units > 1 ? `${money(data.rent.perUnit)}/unit · ` : ""}Range ${money(data.rent.low)} – ${money(data.rent.high)}`
+              ? `${data.rent.compsPerUnit ? `From adjusted rental comps${data.rent.units > 1 ? ` (${money(data.rent.compsPerUnit)}/unit)` : ""} · RentCast estimate ${money(data.rent.perUnit)}` : `RentCast estimate`} · range ${money(data.rent.low)} – ${money(data.rent.high)}`
               : "No estimate"
           }
         />
@@ -126,4 +134,10 @@ function CompTable({ title, comps, unit }: { title: string; comps: Comparable[];
       </div>
     </details>
   );
+}
+
+/** Coordinates aim the camera more precisely than an address string. */
+export function photoLocation(d: PropertyLookup): string {
+  const { latitude, longitude } = d.facts;
+  return latitude != null && longitude != null ? `${latitude},${longitude}` : d.address.formatted;
 }

@@ -55,6 +55,9 @@ export interface PropertyLookup {
     units: number;
     total: string;
     comparables: Comparable[];
+    /** Comp-based market rent per unit from DEALAN's adjusted-comps engine (what "Apply" uses). */
+    compsPerUnit?: string | null;
+    compsMethod?: string | null;
   } | null;
   warnings: string[];
 }

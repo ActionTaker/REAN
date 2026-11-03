@@ -2,15 +2,22 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { demoLookup } from "./demo";
 import { rentcastLookup } from "./rentcast";
-import { lookupArv } from "./comps-arv";
+import { lookupArv, lookupRent } from "./comps-arv";
 import { LookupError, normalizeAddressKey, type PropertyLookup } from "./types";
 
 export * from "./types";
 
 /** ARV is derived from the stored comps, so recompute it — keeps cached lookups in step with the current method. */
 function withFreshArv(d: PropertyLookup): PropertyLookup {
-  if (!d.value) return d;
-  return { ...d, arv: lookupArv(d.facts, d.value) };
+  const arv = d.value ? lookupArv(d.facts, d.value) : d.arv;
+  const rent = d.rent ? { ...d.rent, ...compsRentFields(d.facts, d.rent) } : d.rent;
+  return { ...d, arv, rent };
+}
+
+/** Comp-based rent fields for a lookup's rent block. */
+export function compsRentFields(facts: PropertyLookup["facts"], rent: NonNullable<PropertyLookup["rent"]>) {
+  const r = lookupRent(facts, rent);
+  return { compsPerUnit: r?.perUnit ?? null, compsMethod: r?.method ?? null };
 }
 
 const CACHE_DAYS = 30;
@@ -38,7 +45,7 @@ export async function lookupProperty(address: string, opts: { refresh?: boolean 
     }
   }
 
-  const data = provider === "demo" ? demoLookup(address) : await rentcastLookup(address, process.env.RENTCAST_API_KEY!);
+  const data = withFreshArv(provider === "demo" ? demoLookup(address) : await rentcastLookup(address, process.env.RENTCAST_API_KEY!));
   await prisma.propertyDataCache.upsert({
     where: { addressKey: key },
     update: { payload: data as object, fetchedAt: new Date(), provider },

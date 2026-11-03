@@ -19,6 +19,9 @@ import type { Comparable } from "./types";
 
 export type CompCondition = "renovated" | "average" | "dated";
 
+/** "sale" = sales comps → ARV; "rent" = rental comps → market rent per unit. */
+export type CompsMode = "sale" | "rent";
+
 export interface CompChoice {
   included: boolean;
   condition: CompCondition | null;
@@ -48,6 +51,18 @@ export const DEFAULT_ARV_SETTINGS: ArvSettings = {
   excludeActive: false,
 };
 
+/** Bedrooms and bathrooms move rent more than sale price, relative to the median. */
+export const DEFAULT_RENT_SETTINGS: ArvSettings = {
+  sizeAdjPct: "50",
+  bedAdjPct: "5",
+  bathAdjPct: "3",
+  agePctPerYear: "0.1",
+  ageCapPct: "5",
+  excludeActive: false,
+};
+
+export const defaultSettingsFor = (mode: CompsMode) => (mode === "rent" ? DEFAULT_RENT_SETTINGS : DEFAULT_ARV_SETTINGS);
+
 export interface Subject {
   squareFeet: number | null;
   bedrooms: number | null;
@@ -68,7 +83,7 @@ export interface CompRow {
   weight: D;
 }
 
-export type ArvMethodKey = "recommended" | "adjustedAverage" | "ppsf" | "avm";
+export type ArvMethodKey = "recommended" | "adjustedAverage" | "conservative" | "ppsf" | "avm";
 
 export interface ArvMethod {
   key: ArvMethodKey;
@@ -92,7 +107,8 @@ export interface CompsArvResult {
 export const compId = (c: Comparable, i: number) => c.id ?? `${c.address}#${i}`;
 
 const median = (xs: D[]) => (xs.length ? percentile(xs, 0.5) : null);
-const roundK = (v: D) => v.div(1000).toDecimalPlaces(0, D.ROUND_HALF_UP).times(1000);
+const roundTo = (v: D, step: number) => v.div(step).toDecimalPlaces(0, D.ROUND_HALF_UP).times(step);
+const roundK = (v: D) => roundTo(v, 1000);
 
 export function isActiveListing(c: Comparable) {
   return (c.status ?? "").toLowerCase() === "active";
@@ -104,7 +120,9 @@ export function analyzeComps(
   choices: Record<string, CompChoice>,
   settings: ArvSettings,
   asIsValue: DecimalLike | null,
+  mode: CompsMode = "sale",
 ): CompsArvResult {
+  const round = mode === "rent" ? (v: D) => roundTo(v, 25) : roundK;
   const notes: string[] = [];
   const priced = comps.filter((c) => dec(c.price).gt(0));
   const basePrices = priced.map((c) => dec(c.price));
@@ -174,6 +192,14 @@ export function analyzeComps(
       value: wavg(renovated)!,
       basis: `Weighted average of ${renovated.length} comp${renovated.length > 1 ? "s" : ""} you marked renovated, adjusted to the subject`,
     };
+  } else if (mode === "rent") {
+    // Market rent = what a typical comparable unit rents for; no upper-quartile uplift.
+    if (used.length > 0) {
+      recommended = {
+        value: wavg(used)!,
+        basis: `Weighted average of ${used.length} adjusted rental comp${used.length > 1 ? "s" : ""} (closer, more similar units count more). Mark renovated comps if your unit will be updated.`,
+      };
+    }
   } else if (adjusted.length >= 3) {
     recommended = {
       value: percentile(adjusted, 0.75),
@@ -182,10 +208,10 @@ export function analyzeComps(
   } else if (adjusted.length > 0) {
     recommended = { value: D.max(...adjusted), basis: "Highest adjusted comp (fewer than 3 comps in use)" };
   }
-  if (recommended && asIs && recommended.value.lt(asIs)) {
+  if (mode === "sale" && recommended && asIs && recommended.value.lt(asIs)) {
     recommended = { value: asIs, basis: `${recommended.basis}. Raised to the as-is value, since repairs shouldn't lower value.` };
   }
-  if (recommended) recommended = { ...recommended, value: roundK(recommended.value) };
+  if (recommended) recommended = { ...recommended, value: round(recommended.value) };
 
   // Confidence: how many comps, how tightly they agree, how close and similar they are.
   const reasons: string[] = [];
@@ -213,30 +239,34 @@ export function analyzeComps(
   if (!subject.squareFeet) score -= 2;
   const level = score >= 5 ? "high" : score >= 3 ? "medium" : "low";
 
-  const methods: ArvMethod[] = [
-    {
-      key: "recommended",
-      label: "Recommended",
-      value: recommended?.value ?? null,
-      formula: recommended?.basis ?? "Need at least one comp in use",
-    },
-    {
-      key: "adjustedAverage",
-      label: "Adjusted comps average",
-      value: (() => {
-        const v = wavg(used);
-        return v ? roundK(v) : null;
-      })(),
-      formula: "Average of adjusted comp prices, weighted by similarity ÷ (1 + miles away) — typical condition, not post-rehab",
-    },
-    {
-      key: "ppsf",
-      label: "Median $/sq ft × size",
-      value: ppsfValue ? roundK(ppsfValue) : null,
-      formula: subject.squareFeet ? `Median comp $/sq ft × ${subject.squareFeet.toLocaleString("en-US")} sq ft (no other adjustments)` : "Needs the subject's square footage",
-    },
-    { key: "avm", label: "Automated as-is value", value: asIs, formula: "RentCast valuation of the property in current condition" },
-  ];
+  const sizeFormula = subject.squareFeet
+    ? `Median comp $/sq ft × ${subject.squareFeet.toLocaleString("en-US")} sq ft (no other adjustments)`
+    : "Needs the subject's square footage";
+  const avgValue = wavg(used);
+  const methods: ArvMethod[] =
+    mode === "rent"
+      ? [
+          { key: "recommended", label: "Recommended market rent", value: recommended?.value ?? null, formula: recommended?.basis ?? "Need at least one comp in use" },
+          {
+            key: "conservative",
+            label: "Conservative",
+            value: adjusted.length >= 2 ? round(percentile(adjusted, 0.25)) : null,
+            formula: "Lower quartile of adjusted rents — a safer number to underwrite with",
+          },
+          { key: "ppsf", label: "Median $/sq ft × size", value: ppsfValue ? round(ppsfValue) : null, formula: sizeFormula },
+          { key: "avm", label: "Automated rent estimate", value: asIs, formula: "RentCast's own rent model for this property" },
+        ]
+      : [
+          { key: "recommended", label: "Recommended", value: recommended?.value ?? null, formula: recommended?.basis ?? "Need at least one comp in use" },
+          {
+            key: "adjustedAverage",
+            label: "Adjusted comps average",
+            value: avgValue ? round(avgValue) : null,
+            formula: "Average of adjusted comp prices, weighted by similarity ÷ (1 + miles away) — typical condition, not post-rehab",
+          },
+          { key: "ppsf", label: "Median $/sq ft × size", value: ppsfValue ? round(ppsfValue) : null, formula: sizeFormula },
+          { key: "avm", label: "Automated as-is value", value: asIs, formula: "RentCast valuation of the property in current condition" },
+        ];
 
   return { rows, used: used.length, medianPrice, medianPpsf, range, methods, recommended, confidence: { level, reasons }, notes };
 }
@@ -255,4 +285,26 @@ export function lookupArv(
   );
   if (!r.recommended) return null;
   return { estimate: r.recommended.value.toString(), method: r.recommended.basis, pricePerSqft: r.medianPpsf?.toFixed(2) ?? null, compsUsed: r.used };
+}
+
+/** Comp-based market rent per unit for a lookup (all comps in, no tags). */
+export function lookupRent(
+  facts: { squareFeet: number | null; bedrooms: number | null; bathrooms: number | null; yearBuilt: number | null; units: number },
+  rent: { perUnit: string; comparables: Comparable[] },
+): { perUnit: string; method: string; compsUsed: number } | null {
+  const r = analyzeComps(perUnitSubject(facts), rent.comparables, {}, DEFAULT_RENT_SETTINGS, rent.perUnit, "rent");
+  if (!r.recommended) return null;
+  return { perUnit: r.recommended.value.toString(), method: r.recommended.basis, compsUsed: r.used };
+}
+
+/** Rental comps are single units, so a multifamily subject is compared per unit. */
+export function perUnitSubject(f: { squareFeet: number | null; bedrooms: number | null; bathrooms: number | string | null; yearBuilt: number | null; units?: number }): Subject {
+  const u = Math.max(1, f.units ?? 1);
+  const baths = f.bathrooms === null || f.bathrooms === "" ? null : dec(f.bathrooms).div(u);
+  return {
+    squareFeet: f.squareFeet ? Math.round(f.squareFeet / u) : null,
+    bedrooms: f.bedrooms !== null ? Math.round(f.bedrooms / u) : null,
+    bathrooms: baths ? baths.times(2).toDecimalPlaces(0).div(2).toString() : null, // nearest half bath
+    yearBuilt: f.yearBuilt,
+  };
 }

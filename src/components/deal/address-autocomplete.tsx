@@ -32,6 +32,7 @@ export function AddressAutocomplete({
   const [active, setActive] = useState(-1);
   const [loading, setLoading] = useState(false);
   const typed = useRef(false); // only fetch for keystrokes, not for programmatic updates
+  const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
   useEffect(() => {
@@ -44,7 +45,8 @@ export function AddressAutocomplete({
         const res = await fetch(`/api/address-suggest?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
         const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
         setItems(data.suggestions ?? []);
-        setOpen(true);
+        // Late answers must not reopen the list after the user has moved on (e.g. clicked "Get estimates").
+        setOpen(document.activeElement === inputRef.current);
         setActive(-1);
       } catch {
         /* aborted or offline — leave the list as is */
@@ -71,6 +73,7 @@ export function AddressAutocomplete({
     <div className="relative flex-1">
       <MapPin className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
+        ref={inputRef}
         role="combobox"
         aria-expanded={showList}
         aria-controls={listId}

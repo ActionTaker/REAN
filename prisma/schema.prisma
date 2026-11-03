@@ -115,6 +115,8 @@ model Property {
   rehabCosts    Decimal @default(0) @db.Decimal(14, 2)
   /// Comps & ARV choices: { choices: {compId: {included, condition}}, settings, method }.
   arvAnalysis Json?
+  /// Same shape as arvAnalysis, for rental comps → market rent.
+  rentAnalysis Json?
   /// Max-offer goals chosen for this deal: { [goalKey]: { enabled, target } }.
   offerGoals Json?
   /// Rehab scope + line items ({ scope, contingencyPct, items[], customized }). rehabCosts holds the total.

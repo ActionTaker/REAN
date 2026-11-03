@@ -64,3 +64,19 @@ test("bed/bath/age adjustments use % of median price, age is capped", () => {
   assert.equal(a.bathrooms.toFixed(0), "6000"); // +1 bath × 1.5% × 400k
   assert.equal(a.age.toFixed(0), "20000"); // 50 yrs × 0.2% × 400k = 40k, capped at 5% = 20k
 });
+
+test("rent mode: typical (weighted average) rent, $25 rounding, conservative quartile, no as-is floor", async () => {
+  const { DEFAULT_RENT_SETTINGS, perUnitSubject } = await import("./comps-arv");
+  const comps = [comp(2_000, 1500), comp(2_100, 1500), comp(1_900, 1500), comp(2_600, 1500)];
+  const r = analyzeComps(subject, comps, {}, DEFAULT_RENT_SETTINGS, "3000", "rent");
+  // Equal weights → plain average 2,150; not the upper quartile, and not raised to the 3,000 AVM.
+  assert.equal(r.recommended!.value.toString(), "2150");
+  assert.equal(r.methods.find((m) => m.key === "conservative")!.value!.toString(), "1975"); // p25 1,975
+  // Bedrooms matter more for rent: +1 bed = 5% of median rent (2,050) = 102.5
+  const twoBed = analyzeComps(subject, [comp(2_000, 1500, { bedrooms: 2 }), comp(2_100, 1500)], {}, DEFAULT_RENT_SETTINGS, null, "rent");
+  assert.equal(twoBed.rows[0].adjustments.bedrooms.toString(), "102.5");
+  // A fourplex is compared per unit.
+  assert.deepEqual(perUnitSubject({ squareFeet: 3600, bedrooms: 8, bathrooms: 4, yearBuilt: 1962, units: 4 }), {
+    squareFeet: 900, bedrooms: 2, bathrooms: "1", yearBuilt: 1962,
+  });
+});

@@ -77,7 +77,7 @@ export const arvAnalysisSchema = z.object({
     ageCapPct: z.string().max(10),
     excludeActive: z.boolean(),
   }),
-  method: z.enum(["recommended", "adjustedAverage", "ppsf", "avm", "manual"]).nullable(),
+  method: z.enum(["recommended", "adjustedAverage", "conservative", "ppsf", "avm", "manual"]).nullable(),
 });
 
 export const dealSchema = z
@@ -102,6 +102,7 @@ export const dealSchema = z
     afterRepairValue: z.union([z.literal(""), money("After-repair value")]).optional().default(""),
     offerGoals: offerGoalsSchema.nullable().optional().default(null),
     arvAnalysis: arvAnalysisSchema.nullable().optional().default(null),
+    rentAnalysis: arvAnalysisSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),

@@ -9,7 +9,8 @@ import { PropertyActions } from "@/components/deal/property-actions";
 import { StatusSelect } from "@/components/deal/status-select";
 import { getProperty } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
-import { formatAddress } from "@/lib/property-mapping";
+import { formatAddress, recordPhotoLocation } from "@/lib/property-mapping";
+import { PropertyPhoto } from "@/components/deal/property-photo";
 import { propertyTypeLabel } from "@/lib/constants";
 import { relativeTime } from "@/lib/analyze-record";
 
@@ -39,6 +40,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           <ChevronLeft className="size-3.5" /> My Properties
         </Link>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+          <PropertyPhoto location={recordPhotoLocation(p)} className="hidden w-44 shrink-0 sm:block" width={352} height={220} />
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
@@ -48,6 +51,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
               <p className="flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="size-3.5" /> {formatAddress(p)}</p>
             )}
             <p className="text-xs text-muted-foreground">{facts.join(" · ")} · Updated {relativeTime(p.updatedAt)}</p>
+          </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusSelect id={p.id} status={p.status} />

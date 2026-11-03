@@ -15,6 +15,8 @@ import { D, dec, formatCurrency } from "@/lib/finance";
 import {
   DEFAULT_ARV_SETTINGS,
   analyzeComps,
+  defaultSettingsFor,
+  type CompsMode,
   isActiveListing,
   type ArvMethodKey,
   type CompCondition,
@@ -31,11 +33,43 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 type SortKey = "similarity" | "distance" | "adjusted" | "date";
 
+const COPY: Record<CompsMode, {
+  title: string; what: string; heading: string; priceCol: string; use: string; manual: string; now: string; per: string; listedNote: string; footer: string;
+}> = {
+  sale: {
+    title: "Comps & ARV",
+    what: "comparable sales",
+    heading: "Comparable sales",
+    priceCol: "Sale price",
+    use: "Use as ARV",
+    manual: "Your own ARV",
+    now: "ARV in this deal now",
+    per: "",
+    listedNote: "that's an asking price, not a sale",
+    footer:
+      "RentCast tracks listings, not recorded deeds — \u201coff market\u201d usually means sold, but confirm closed prices with an agent or the county record.",
+  },
+  rent: {
+    title: "Comps & Rent",
+    what: "rental comps",
+    heading: "Rental comps",
+    priceCol: "Rent / mo",
+    use: "Use as rent",
+    manual: "Your own rent (per unit)",
+    now: "Rent per unit in this deal now",
+    per: "/mo",
+    listedNote: "that's an advertised rent, which can run above signed leases",
+    footer:
+      "Rental comps are listings — advertised rents can run a little above what tenants actually sign for. Check with a local property manager before you rely on the top of the range.",
+  },
+};
+
 /**
  * Full Comps & ARV workspace: pick comps, tag condition, see every adjustment,
  * compare methods and apply one to the deal's ARV. Free — nothing paywalled.
  */
 export function CompsArvSheet({
+  mode = "sale",
   open,
   onOpenChange,
   lookup,
@@ -47,6 +81,8 @@ export function CompsArvSheet({
   currentArv,
   onUseArv,
 }: {
+  /** "sale" → ARV from sales comps; "rent" → market rent per unit from rental comps. */
+  mode?: CompsMode;
   open: boolean;
   onOpenChange: (o: boolean) => void;
   lookup: PropertyLookup;
@@ -59,14 +95,16 @@ export function CompsArvSheet({
   currentArv: string;
   onUseArv: (value: string, method: ArvMethodKey | "manual") => void;
 }) {
-  const comps = useMemo(() => lookup.value?.comparables ?? [], [lookup]);
+  const copy = COPY[mode];
+  const comps = useMemo(() => (mode === "rent" ? lookup.rent?.comparables : lookup.value?.comparables) ?? [], [lookup, mode]);
+  const avm = mode === "rent" ? lookup.rent?.perUnit ?? null : lookup.value?.estimate ?? null;
   const result = useMemo(
-    () => analyzeComps(subject, comps, analysis.choices, analysis.settings, lookup.value?.estimate ?? null),
-    [subject, comps, analysis, lookup],
+    () => analyzeComps(subject, comps, analysis.choices, analysis.settings, avm, mode),
+    [subject, comps, analysis, avm, mode],
   );
   const [sort, setSort] = useState<SortKey>("similarity");
   const [showSettings, setShowSettings] = useState(false);
-  const [manual, setManual] = useState(currentArv);
+  const [manual, setManual] = useState(dec(currentArv || 0).gt(0) ? currentArv : "");
 
   // Letters follow similarity order so the map and table always agree, however the table is sorted.
   const letters = useMemo(() => {
@@ -104,9 +142,11 @@ export function CompsArvSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-6xl">
         <SheetHeader className="border-b px-6 py-4">
-          <SheetTitle>Comps & ARV</SheetTitle>
+          <SheetTitle>{copy.title}</SheetTitle>
           <SheetDescription>
-            {lookup.address.formatted} · {comps.length} comparable sales from {lookup.provider === "rentcast" ? "RentCast" : "demo data"}. Choose which comps count, mark the renovated ones, and apply an ARV.
+            {lookup.address.formatted} · {comps.length} {copy.what} from {lookup.provider === "rentcast" ? "RentCast" : "demo data"}. Choose which comps
+            count, mark the renovated ones, and apply a number to this deal.
+            {mode === "rent" && (lookup.rent?.units ?? 1) > 1 && ` Rents are per unit; applying multiplies by ${lookup.rent!.units} units.`}
           </SheetDescription>
         </SheetHeader>
 
@@ -132,7 +172,10 @@ export function CompsArvSheet({
                       </span>
                     )}
                   </div>
-                  <div className={cn("num mt-1 font-semibold tracking-tight", main ? "text-3xl" : "text-xl")}>{money(m.value)}</div>
+                  <div className={cn("num mt-1 font-semibold tracking-tight", main ? "text-3xl" : "text-xl")}>
+                    {money(m.value)}
+                    {m.value && copy.per && <span className="text-sm font-normal text-muted-foreground">{copy.per}</span>}
+                  </div>
                   {main && result.range && (
                     <div className="num text-xs text-muted-foreground">
                       Adjusted comps, middle half: {money(result.range.low)} – {money(result.range.high)}
@@ -147,7 +190,7 @@ export function CompsArvSheet({
                     disabled={!m.value}
                     onClick={() => m.value && onUseArv(m.value.toString(), m.key)}
                   >
-                    {applied ? <><Check /> In use</> : "Use as ARV"}
+                    {applied ? <><Check /> In use</> : copy.use}
                   </Button>
                 </div>
               );
@@ -156,14 +199,14 @@ export function CompsArvSheet({
 
           <section className="flex flex-wrap items-end gap-3 rounded-xl border p-3">
             <div className="space-y-1">
-              <Label htmlFor="manual-arv" className="text-xs">Your own ARV</Label>
+              <Label htmlFor="manual-arv" className="text-xs">{copy.manual}</Label>
               <NumberInput id="manual-arv" prefix="$" value={manual} onChange={(e) => setManual(e.target.value)} className="h-8 w-40" />
             </div>
             <Button type="button" size="sm" variant="outline" disabled={!/^\d+(\.\d+)?$/.test(manual.replace(/[,$\s]/g, ""))} onClick={() => onUseArv(manual.replace(/[,$\s]/g, ""), "manual")}>
               Use my number
             </Button>
             <p className="text-xs text-muted-foreground">
-              ARV in this deal now: <span className="num font-medium text-foreground">{current.gt(0) ? formatCurrency(current) : "not set"}</span>
+              {copy.now}: <span className="num font-medium text-foreground">{current.gt(0) ? formatCurrency(current) : "not set"}</span>
               {analysis.method && <> · from {analysis.method === "manual" ? "your number" : result.methods.find((m) => m.key === analysis.method)?.label.toLowerCase()}</>}
             </p>
           </section>
@@ -209,7 +252,7 @@ export function CompsArvSheet({
                 ))}
                 {activeCount > 0 && (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {activeCount} comp{activeCount > 1 ? "s are" : " is"} still listed for sale — that&apos;s an asking price, not a sale.
+                    {activeCount} comp{activeCount > 1 ? "s are" : " is"} still listed — {copy.listedNote}.
                   </p>
                 )}
               </div>
@@ -220,7 +263,7 @@ export function CompsArvSheet({
           {/* ── Comps table ────────────────────────────────────────── */}
           <section className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-sm font-medium">Comparable sales <span className="font-normal text-muted-foreground">· {result.used} of {comps.length} in use</span></h3>
+              <h3 className="text-sm font-medium">{copy.heading} <span className="font-normal text-muted-foreground">· {result.used} of {comps.length} in use</span></h3>
               <label className="flex items-center gap-2 text-xs">
                 <Switch checked={analysis.settings.excludeActive} onCheckedChange={(v) => setSetting("excludeActive", v)} />
                 Exclude active listings
@@ -260,10 +303,11 @@ export function CompsArvSheet({
                   </div>
                 ))}
                 <p className="text-[11px] text-muted-foreground sm:col-span-4">
-                  Size is adjusted at half the going $/sq ft by default, because land and location don&apos;t grow with the house. Median price{" "}
-                  {money(result.medianPrice)}, median {money(result.medianPpsf)}/sq ft.
+                  Size is adjusted at half the going $/sq ft by default, because location doesn&apos;t grow with the house. Median{" "}
+                  {mode === "rent" ? "rent" : "price"} {money(result.medianPrice)}, median{" "}
+                  {result.medianPpsf ? formatCurrency(result.medianPpsf, { cents: mode === "rent" }) : "—"}/sq ft.
                 </p>
-                <Button type="button" variant="ghost" size="sm" onClick={() => onAnalysisChange({ ...analysis, settings: { ...DEFAULT_ARV_SETTINGS } })}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => onAnalysisChange({ ...analysis, settings: { ...defaultSettingsFor(mode) } })}>
                   <RotateCcw /> Defaults
                 </Button>
               </div>
@@ -276,7 +320,7 @@ export function CompsArvSheet({
                     <th className="w-10 px-3 py-2 text-left font-medium">Use</th>
                     <th className="px-3 py-2 text-left font-medium">Comp</th>
                     <th className="px-3 py-2 text-right font-medium">Bd / Ba · Sq ft · Built</th>
-                    <th className="px-3 py-2 text-right font-medium">Sale price</th>
+                    <th className="px-3 py-2 text-right font-medium">{copy.priceCol}</th>
                     <th className="px-3 py-2 text-right font-medium">Adjustments</th>
                     <th className="px-3 py-2 text-right font-medium">Adjusted</th>
                     <th className="px-3 py-2 text-left font-medium">Condition</th>
@@ -321,7 +365,7 @@ export function CompsArvSheet({
                         </td>
                         <td className="num px-3 py-2.5 text-right whitespace-nowrap">
                           {money(dec(c.price))}
-                          <div className="text-[11px] text-muted-foreground">{r.ppsf ? `${formatCurrency(r.ppsf)}/sq ft` : ""}</div>
+                          <div className="text-[11px] text-muted-foreground">{r.ppsf ? `${formatCurrency(r.ppsf, { cents: mode === "rent" })}/sq ft` : ""}</div>
                         </td>
                         <td className="num px-3 py-2.5 text-right text-xs whitespace-nowrap">
                           <Tooltip>
@@ -374,9 +418,9 @@ export function CompsArvSheet({
               </table>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Adjusted price = sale price + adjustments that move each comp toward your property (a smaller comp is adjusted up, a larger one down).
-              Mark comps that look renovated in their listing photos as <strong>Reno</strong>: the recommended ARV then uses only those. RentCast tracks
-              listings, not recorded deeds — &ldquo;off market&rdquo; usually means sold, but confirm closed prices with an agent or the county record.
+              Adjusted = {mode === "rent" ? "rent" : "sale price"} + adjustments that move each comp toward your property (a smaller comp is adjusted up, a
+              larger one down). Mark comps that look renovated in their listing photos as <strong>Reno</strong>: the recommendation then uses only those.{" "}
+              {copy.footer}
             </p>
           </section>
         </div>

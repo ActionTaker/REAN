@@ -27,6 +27,7 @@ import { RehabEstimator } from "./rehab-estimator";
 import { DealTools } from "./deal-tools";
 import { CompsArvSheet } from "./comps-arv-sheet";
 import { emptyArvAnalysis, type ArvAnalysis } from "@/lib/property-data/arv-analysis";
+import { perUnitSubject } from "@/lib/property-data/comps-arv";
 import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
 import { buildRehabPlan, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import { estimateClosingCosts, estimateInsurance, type CostEstimate } from "@/lib/estimates/costs";
@@ -72,8 +73,9 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
 
   // ── Comps & ARV panel ──
   const [marketData, setMarketData] = useState<PropertyLookup | null>(initialMarketData);
-  const [compsOpen, setCompsOpen] = useState(false);
-  const arvAnalysis = (values.arvAnalysis as ArvAnalysis | null) ?? emptyArvAnalysis();
+  const [compsOpen, setCompsOpen] = useState<null | "sale" | "rent">(null);
+  const arvAnalysis = (values.arvAnalysis as ArvAnalysis | null) ?? emptyArvAnalysis("sale");
+  const rentAnalysis = (values.rentAnalysis as ArvAnalysis | null) ?? emptyArvAnalysis("rent");
   const subjectNum = (v: unknown) => {
     const n = Number(String(v ?? "").replace(/[,\s]/g, ""));
     return String(v ?? "").trim() !== "" && Number.isFinite(n) ? n : null;
@@ -143,7 +145,8 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     set("yearBuilt", d.facts.yearBuilt);
     set("propertyTaxAnnual", d.propertyTaxAnnual?.amount, "taxes");
     set("hoaMonthly", d.hoaMonthly, "HOA");
-    set("monthlyRent", d.rent?.total, "rent");
+    // Comp-based market rent (adjusted comps) × units; RentCast's own estimate as a fallback.
+    set("monthlyRent", d.rent?.compsPerUnit ? dec(d.rent.compsPerUnit).times(Math.max(1, d.rent.units)).toString() : d.rent?.total, "rent");
     set("afterRepairValue", d.arv?.estimate, "ARV");
     if (!String(getValues("purchasePrice") ?? "").trim()) set("purchasePrice", d.value?.estimate, "price (as-is value)");
     setLookupAddress(address);
@@ -240,7 +243,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             setMarketData(d);
             setLookupAddress(address); // so the snapshot is saved with the deal
           }}
-          onOpenComps={() => setCompsOpen(true)}
+          onOpenComps={(mode) => setCompsOpen(mode)}
           onAddressSelected={(sug) => {
             const opts = { shouldDirty: true } as const;
             if (!getValues("name")) setValue("name", sug.line1, opts);
@@ -290,7 +293,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               prefix: "$",
               hint:
                 (marketData?.value?.comparables.length ?? 0) > 0 ? (
-                  <button type="button" onClick={() => setCompsOpen(true)} className="font-medium text-foreground underline underline-offset-2">
+                  <button type="button" onClick={() => setCompsOpen("sale")} className="font-medium text-foreground underline underline-offset-2">
                     Review comps & ARV
                   </button>
                 ) : analysis.equityCreated ? (
@@ -329,7 +332,15 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
 
         <Section title="Rental income" description="Enter the total for all units.">
           <div className="grid gap-4 sm:grid-cols-3">
-            {num("monthlyRent", "Monthly rent (all units)", { prefix: "$" })}
+            {num("monthlyRent", "Monthly rent (all units)", {
+              prefix: "$",
+              hint:
+                (marketData?.rent?.comparables.length ?? 0) > 0 ? (
+                  <button type="button" onClick={() => setCompsOpen("rent")} className="font-medium text-foreground underline underline-offset-2">
+                    Review rent comps
+                  </button>
+                ) : undefined,
+            })}
             {num("otherMonthlyIncome", "Other monthly income", { prefix: "$", hint: "Laundry, parking, storage, pet fees" })}
             {num("vacancyRate", "Vacancy rate", { suffix: "%", hint: "5–8% is common for SFR" })}
           </div>
@@ -361,8 +372,9 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
 
         {marketData && (
           <CompsArvSheet
-            open={compsOpen}
-            onOpenChange={setCompsOpen}
+            mode="sale"
+            open={compsOpen === "sale"}
+            onOpenChange={(o) => setCompsOpen(o ? "sale" : null)}
             lookup={marketData}
             subject={compSubject}
             subjectInputs={{
@@ -379,6 +391,31 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               setValue("afterRepairValue", v as never, { shouldDirty: true, shouldValidate: true });
               setValue("arvAnalysis", { ...arvAnalysis, method } as never, { shouldDirty: true });
               toast.success(`ARV set to ${formatCurrency(dec(v))}`);
+            }}
+          />
+        )}
+        {marketData?.rent && (
+          <CompsArvSheet
+            mode="rent"
+            open={compsOpen === "rent"}
+            onOpenChange={(o) => setCompsOpen(o ? "rent" : null)}
+            lookup={marketData}
+            subject={perUnitSubject({ ...compSubject, units: unitsNum })}
+            subjectInputs={{
+              squareFeet: String(values.squareFeet ?? ""),
+              bedrooms: String(values.bedrooms ?? ""),
+              bathrooms: String(values.bathrooms ?? ""),
+              yearBuilt: String(values.yearBuilt ?? ""),
+            }}
+            onSubjectChange={(field, v) => setValue(field, v as never, { shouldDirty: true, shouldValidate: true })}
+            analysis={rentAnalysis}
+            onAnalysisChange={(a) => setValue("rentAnalysis", a as never, { shouldDirty: true })}
+            currentArv={dec(formValuesToInputs(values).monthlyRent as string).div(Math.max(1, unitsNum)).toDecimalPlaces(2).toString()}
+            onUseArv={(v, method) => {
+              const total = dec(v).times(Math.max(1, unitsNum)).toString();
+              setValue("monthlyRent", total as never, { shouldDirty: true, shouldValidate: true });
+              setValue("rentAnalysis", { ...rentAnalysis, method } as never, { shouldDirty: true });
+              toast.success(`Rent set to ${formatCurrency(dec(total))}/mo${unitsNum > 1 ? ` (${unitsNum} units × ${formatCurrency(dec(v))})` : ""}`);
             }}
           />
         )}

@@ -8,7 +8,8 @@ import { PropertyAnalysis } from "@/components/deal/property-analysis";
 import { getProperty } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { requireUser } from "@/lib/auth-helpers";
-import { formatAddress } from "@/lib/property-mapping";
+import { formatAddress, recordPhotoLocation } from "@/lib/property-mapping";
+import { PropertyPhoto } from "@/components/deal/property-photo";
 import { dealStatusLabel, propertyTypeLabel } from "@/lib/constants";
 import { PrintButton } from "../print-button";
 
@@ -43,6 +44,8 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
       <article className="mx-auto max-w-5xl space-y-6 rounded-2xl border bg-card p-6 shadow-sm sm:p-10 print:max-w-none print:border-0 print:p-0 print:shadow-none">
         <header className="flex flex-col gap-6 border-b pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-5">
+          <PropertyPhoto location={recordPhotoLocation(p)} className="hidden w-48 shrink-0 sm:block" width={384} height={240} />
           <div className="space-y-2">
             <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Rental Property Investment Analysis</p>
             <div className="flex items-center gap-2">
@@ -50,6 +53,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
               {p.isSample && <SampleBadge />}
             </div>
             <p className="text-sm text-muted-foreground">{formatAddress(p) || "Address not provided"}</p>
+          </div>
           </div>
           <div className="space-y-1 text-sm sm:text-right">
             <Brand />
