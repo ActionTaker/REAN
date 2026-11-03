@@ -34,6 +34,44 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 type SortKey = "similarity" | "distance" | "adjusted" | "date";
 
+/** Plain-language key to the table: price → adjustments → adjusted price → ARV. */
+function ReadingGuide({ mode }: { mode: CompsMode }) {
+  const rent = mode === "rent";
+  return (
+    <details className="group rounded-lg border bg-muted/30 text-xs" open>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 font-medium">
+        How to read this table
+        <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Show</span>
+        <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide</span>
+      </summary>
+      <ol className="grid gap-3 border-t px-3 py-3 sm:grid-cols-3">
+        <li>
+          <div className="font-semibold">① {rent ? "Rent" : "Price"} — what that home actually {rent ? "rents" : "sold"} for</div>
+          <p className="mt-0.5 text-muted-foreground">
+            The tag tells you which kind: <strong>{rent ? "For rent · asking" : "For sale · asking price"}</strong> is still on the market, so it&apos;s only
+            what the owner hopes to get. <strong>Off market</strong> means the listing ended — usually {rent ? "leased" : "sold"} at about that{" "}
+            {rent ? "rent" : "price"}.
+          </p>
+        </li>
+        <li>
+          <div className="font-semibold">② Adjust to yours — correct for differences</div>
+          <p className="mt-0.5 text-muted-foreground">
+            No two homes match. If the comp is <strong>smaller</strong>, has fewer beds or baths, or is older than yours, its {rent ? "rent" : "price"} is
+            adjusted <strong>up</strong>; if it&apos;s bigger or newer, <strong>down</strong>. Example: a comp 200 sq ft smaller, where homes go for $150/sq ft → +$15,000 (size counts at half the $/sq ft by default).
+          </p>
+        </li>
+        <li>
+          <div className="font-semibold">③ Adjusted {rent ? "rent" : "price"} = ① + ②</div>
+          <p className="mt-0.5 text-muted-foreground">
+            What <strong>your</strong> {rent ? "unit would rent for" : "home would sell for"} if it were like that comp. {rent ? "Market rent" : "The ARV"} is built
+            from these adjusted numbers — not from the raw {rent ? "rents" : "prices"} — so compare this column.
+          </p>
+        </li>
+      </ol>
+    </details>
+  );
+}
+
 const COPY: Record<CompsMode, {
   title: string; what: string; heading: string; priceCol: string; use: string; manual: string; now: string; per: string; listedNote: string; footer: string;
 }> = {
@@ -314,6 +352,8 @@ export function CompsArvSheet({
               </div>
             )}
 
+            <ReadingGuide mode={mode} />
+
             <div className="overflow-x-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs text-muted-foreground">
@@ -321,9 +361,9 @@ export function CompsArvSheet({
                     <th className="w-10 px-3 py-2 text-left font-medium">Use</th>
                     <th className="px-3 py-2 text-left font-medium">Comp</th>
                     <th className="px-3 py-2 text-right font-medium">Bd / Ba · Sq ft · Built</th>
-                    <th className="px-3 py-2 text-right font-medium">{copy.priceCol}</th>
-                    <th className="px-3 py-2 text-right font-medium">Adjustments</th>
-                    <th className="px-3 py-2 text-right font-medium">Adjusted</th>
+                    <th className="px-3 py-2 text-right font-medium">① {copy.priceCol}</th>
+                    <th className="px-3 py-2 text-right font-medium">② Adjust to yours</th>
+                    <th className="px-3 py-2 text-right font-medium text-foreground">③ Adjusted {mode === "rent" ? "rent" : "price"}</th>
                     <th className="px-3 py-2 text-left font-medium">Condition</th>
                   </tr>
                 </thead>
@@ -351,7 +391,7 @@ export function CompsArvSheet({
                               <div className="truncate font-medium text-foreground" title={c.address}>{c.address}</div>
                               <div className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                                 <span className={cn("rounded px-1", active ? "bg-caution/15 text-caution" : "bg-muted")}>
-                                  {active ? "Listed (asking)" : "Off market"}
+                                  {active ? (mode === "rent" ? "For rent · asking" : "For sale · asking price") : mode === "rent" ? "Off market · likely leased" : "Off market · likely sold"}
                                   {c.date && ` ${new Date(c.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
                                 </span>
                                 {c.distanceMiles !== null && <span>{c.distanceMiles.toFixed(2)} mi</span>}
@@ -368,10 +408,10 @@ export function CompsArvSheet({
                           {money(dec(c.price))}
                           <div className="text-[11px] text-muted-foreground">{r.ppsf ? `${formatCurrency(r.ppsf, { cents: mode === "rent" })}/sq ft` : ""}</div>
                         </td>
-                        <td className="num px-3 py-2.5 text-right text-xs whitespace-nowrap">
+                        <td className="num px-3 py-2.5 text-right text-xs">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <button type="button" className="underline decoration-dotted underline-offset-2">{signed(total)}</button>
+                              <button type="button" className="underline decoration-dotted underline-offset-2">{total.isZero() ? "None" : signed(total)}</button>
                             </TooltipTrigger>
                             <TooltipContent className="space-y-0.5 text-left">
                               <div>Size: {signed(r.adjustments.size)}</div>
@@ -380,6 +420,20 @@ export function CompsArvSheet({
                               <div>Age: {signed(r.adjustments.age)}</div>
                             </TooltipContent>
                           </Tooltip>
+                          <div className="mt-0.5 ml-auto max-w-36 text-[10px] leading-tight text-muted-foreground">
+                            {(
+                              [
+                                ["size", r.adjustments.size],
+                                ["beds", r.adjustments.bedrooms],
+                                ["baths", r.adjustments.bathrooms],
+                                ["age", r.adjustments.age],
+                              ] as const
+                            )
+                              .filter(([, v]) => !v.isZero())
+                              .map(([k, v]) => (
+                                <span key={k} className="ml-1.5 inline-block whitespace-nowrap">{k} {signed(v)}</span>
+                              ))}
+                          </div>
                         </td>
                         <td className="num px-3 py-2.5 text-right font-semibold whitespace-nowrap">{money(r.adjustedPrice)}</td>
                         <td className="px-3 py-2.5">
@@ -419,8 +473,7 @@ export function CompsArvSheet({
               </table>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Adjusted = {mode === "rent" ? "rent" : "sale price"} + adjustments that move each comp toward your property (a smaller comp is adjusted up, a
-              larger one down). Mark comps that look renovated in their listing photos as <strong>Reno</strong>: the recommendation then uses only those.{" "}
+              Mark comps that look renovated in their listing photos as <strong>Reno</strong>: the recommendation then uses only those.{" "}
               {copy.footer}
             </p>
           </section>
