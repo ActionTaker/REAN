@@ -1,6 +1,6 @@
 "use client";
 
-import { Home } from "lucide-react";
+import { CheckCircle2, Home, XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { D, dec, formatCurrency, formatPercent, formatRatio, type DealAnalysis } from "@/lib/finance";
 import { ADU_TYPES, compareWithAdu, defaultAduCostPerSqft, type AduScenarioColumn, type AduType } from "@/lib/finance/adu";
 import type { RunAduResult, SavedAduInputs } from "@/lib/adu";
+import { parseTarget, type OfferGoals } from "@/lib/offer-goals";
 import { NumberInput } from "./number-input";
 
 const money = (v: D | null | undefined) => (v ? formatCurrency(v) : "—");
@@ -444,95 +445,157 @@ export function AduWorkings({
   );
 }
 
-/** Side-by-side summary: the deal without the ADU, the ADU on its own, and both together. */
-export function AduComparison({ base, r, compact }: { base: DealAnalysis; r: RunAduResult; compact?: boolean }) {
+type ColKey = "without" | "aduOnly" | "together";
+type GoalTargets = Partial<Record<"cashFlow" | "cashOnCash" | "dscr" | "equity", D>>;
+
+/** Goal targets from the deal's max-offer goals (only the ones turned on). */
+export function aduGoalTargets(goals: OfferGoals | null | undefined): GoalTargets {
+  if (!goals) return {};
+  const t = (k: "breakEven" | "cashOnCash" | "dscr" | "equity") => (goals[k]?.enabled ? parseTarget(goals[k].target) : null);
+  const out: GoalTargets = {};
+  const cf = t("breakEven");
+  if (cf) out.cashFlow = cf;
+  const coc = t("cashOnCash");
+  if (coc) out.cashOnCash = coc.div(100);
+  const dscr = t("dscr");
+  if (dscr) out.dscr = dscr;
+  const eq = t("equity");
+  if (eq) out.equity = eq;
+  return out;
+}
+
+/** Plain-language verdict on what the ADU changes, from the without / with columns. */
+function aduVerdict(c: ReturnType<typeof compareWithAdu>, r: RunAduResult): string {
+  const before = c.without.monthlyCashFlow;
+  const after = c.together.monthlyCashFlow;
+  const parts: string[] = [];
+  if (before.isNegative() && !after.isNegative()) parts.push(`turns cash flow positive (${money(before)} → ${money(after)}/mo)`);
+  else if (!before.isNegative() && after.isNegative()) parts.push(`turns cash flow negative (${money(before)} → ${money(after)}/mo)`);
+  else parts.push(`${after.gte(before) ? "adds" : "costs"} ${money(after.minus(before).abs())}/mo of cash flow`);
+  parts.push(r.equityCreated.isNegative() ? `loses ${money(r.equityCreated.abs())} of equity` : `adds ${money(r.equityCreated)} of equity`);
+  return `Building the ADU ${parts.join(" and ")}, for ${money(r.cashInvested)} more cash in.`;
+}
+
+/** Side-by-side summary: the deal without the ADU, the ADU on its own, and both together — with goal checks and the change. */
+export function AduComparison({ base, r, compact, targets = {} }: { base: DealAnalysis; r: RunAduResult; compact?: boolean; targets?: GoalTargets }) {
   const c = compareWithAdu(base, r);
-  const cols = [
+  const cols: { key: ColKey; label: string; v: AduScenarioColumn }[] = [
     { key: "without", label: "Without ADU", v: c.without },
     { key: "aduOnly", label: "ADU only", v: c.aduOnly },
     { key: "together", label: "With ADU", v: c.together },
-  ] as const;
+  ];
   const signedTone = (v: D | null) => (v ? (v.isNegative() ? "text-negative" : "text-positive") : "");
-  const rows: {
+  type RowDef = {
     label: string;
     hint?: string;
-    cell: (v: AduScenarioColumn) => string;
-    tone?: (v: AduScenarioColumn) => string;
-  }[] = [
+    get: (v: AduScenarioColumn) => D | null;
+    fmt: (v: D | null) => string;
+    tone?: boolean;
+    goal?: { target: D; text: string };
+    /** Change is reported for "With ADU" vs "Without". */
+    delta?: (d: D) => string;
+  };
+  const pct = (v: D | null) => formatPercent(v);
+  const rows: RowDef[] = [
     {
       label: "Cash flow / mo",
-      cell: (v) => money(v.monthlyCashFlow),
-      tone: (v) => signedTone(v.monthlyCashFlow),
+      get: (v) => v.monthlyCashFlow,
+      fmt: money,
+      tone: true,
+      goal: targets.cashFlow ? { target: targets.cashFlow, text: `≥ ${money(targets.cashFlow)}` } : undefined,
+      delta: (d) => `${d.isNegative() ? "−" : "+"}${money(d.abs())}`,
     },
-    { label: "Cash you put in", cell: (v) => money(v.cashInvested) },
+    { label: "Cash you put in", get: (v) => v.cashInvested, fmt: money, delta: (d) => `${d.isNegative() ? "−" : "+"}${money(d.abs())}` },
     {
       label: "Cash-on-cash",
-      cell: (v) => formatPercent(v.cashOnCash),
-      tone: (v) => signedTone(v.cashOnCash),
+      get: (v) => v.cashOnCash,
+      fmt: pct,
+      tone: true,
+      goal: targets.cashOnCash ? { target: targets.cashOnCash, text: `≥ ${formatPercent(targets.cashOnCash, 1)}` } : undefined,
+      delta: (d) => `${d.isNegative() ? "−" : "+"}${d.abs().times(100).toDecimalPlaces(2).toString()} pts`,
     },
-    { label: "NOI / yr", cell: (v) => money(v.annualNOI) },
+    { label: "NOI / yr", get: (v) => v.annualNOI, fmt: money, delta: (d) => `${d.isNegative() ? "−" : "+"}${money(d.abs())}` },
     {
       label: "Equity created",
       hint: base.equityCreated ? undefined : "Main house needs an ARV",
-      cell: (v) => (v.equityCreated ? money(v.equityCreated) : "—"),
-      tone: (v) => signedTone(v.equityCreated),
+      get: (v) => v.equityCreated,
+      fmt: money,
+      tone: true,
+      goal: targets.equity ? { target: targets.equity, text: `≥ ${money(targets.equity)}` } : undefined,
+      delta: (d) => `${d.isNegative() ? "−" : "+"}${money(d.abs())}`,
     },
     {
       label: "DSCR",
-      cell: (v) => (v.dscr ? formatRatio(v.dscr, 2, "×") : "—"),
+      get: (v) => v.dscr,
+      fmt: (v) => (v ? formatRatio(v, 2, "×") : "—"),
+      delta: (d) => `${d.isNegative() ? "−" : "+"}${d.abs().toDecimalPlaces(2).toString()}×`,
+      goal: targets.dscr ? { target: targets.dscr, text: `≥ ${formatRatio(targets.dscr, 2, "×")}` } : undefined,
     },
   ];
   return (
     <div className="space-y-2">
+      <p className={cn("rounded-lg border bg-card px-3 py-2 leading-snug", compact ? "text-xs" : "text-sm")}>{aduVerdict(c, r)}</p>
       <div className="overflow-x-auto rounded-xl border bg-card shadow-xs">
         <table className={cn("w-full", compact ? "text-xs" : "text-sm")}>
           <thead>
             <tr className="border-b text-[11px] text-muted-foreground">
               <th className="px-3 py-2 text-left font-medium" />
               {cols.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn("px-3 py-2 text-right font-medium whitespace-nowrap", col.key === "together" && "bg-muted/50 text-foreground")}
-                >
+                <th key={col.key} className={cn("px-3 py-2 text-right font-medium whitespace-nowrap", col.key === "together" && "bg-muted/50 text-foreground")}>
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map((row) => (
-              <tr key={row.label}>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {row.label}
-                  {row.hint && <div className="text-[10px] leading-tight">{row.hint}</div>}
-                </td>
-                {cols.map((col) => (
-                  <td
-                    key={col.key}
-                    className={cn(
-                      "num px-3 py-2 text-right whitespace-nowrap",
-                      row.tone?.(col.v),
-                      col.key === "together" && "bg-muted/50 font-semibold",
-                    )}
-                  >
-                    {row.cell(col.v)}
+            {rows.map((row) => {
+              const before = row.get(c.without);
+              const after = row.get(c.together);
+              const change = before && after && row.delta ? after.minus(before) : null;
+              return (
+                <tr key={row.label}>
+                  <td className="px-3 py-2 align-top text-muted-foreground">
+                    {row.label}
+                    {row.goal && <div className="text-[10px] leading-tight">Goal {row.goal.text}</div>}
+                    {row.hint && <div className="text-[10px] leading-tight">{row.hint}</div>}
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {cols.map((col) => {
+                    const v = row.get(col.v);
+                    // Goals judge the whole property (without / with); "ADU only" isn't a deal on its own.
+                    const judged = row.goal && v && col.key !== "aduOnly" ? v.gte(row.goal.target) : null;
+                    return (
+                      <td key={col.key} className={cn("px-3 py-2 text-right align-top whitespace-nowrap", col.key === "together" && "bg-muted/50")}>
+                        <span className={cn("num inline-flex items-center gap-1", row.tone && signedTone(v), col.key === "together" && "font-semibold")}>
+                          {judged !== null &&
+                            (judged ? (
+                              <CheckCircle2 className="size-3 text-positive" aria-label="meets goal" />
+                            ) : (
+                              <XCircle className="size-3 text-negative" aria-label="misses goal" />
+                            ))}
+                          {row.fmt(v)}
+                        </span>
+                        {col.key === "together" && change && !change.isZero() && (
+                          <div className="num text-[10px] font-normal text-muted-foreground">{row.delta!(change)}</div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       <p className="text-[11px] leading-snug text-muted-foreground">
-        ADU only: {money(r.totalCost)} build
-        {r.loanAmount.gt(0) ? ` (${money(r.loanAmount)} loan)` : ", all cash"}, valued at a {formatPercent(r.capRateUsed)} cap rate.{" "}
+        ADU only: {money(r.totalCost)} build{r.loanAmount.gt(0) ? ` (${money(r.loanAmount)} loan)` : ", all cash"}, valued at a {formatPercent(r.capRateUsed)} cap rate.{" "}
         {r.breakEvenCostPerSqft ? (
           <>
             It adds equity if built for under <span className="num font-medium text-foreground">{formatCurrency(r.breakEvenCostPerSqft)}/sq ft</span>.
           </>
         ) : (
           "At this rent it doesn't add equity at any build cost."
-        )}
+        )}{" "}
+        ✓/✗ = your goals for this deal, judged on the whole property.
       </p>
     </div>
   );
@@ -548,7 +611,7 @@ function Row({ label, value, strong, negative }: { label: string; value: string;
 }
 
 /** Property page / report panel for a saved ADU scenario. */
-export function AduPanel({ r, s, stateCode, base }: { r: RunAduResult; s: SavedAduInputs; stateCode: string | null; base: DealAnalysis }) {
+export function AduPanel({ r, s, stateCode, base, targets }: { r: RunAduResult; s: SavedAduInputs; stateCode: string | null; base: DealAnalysis; targets?: GoalTargets }) {
   const t = ADU_TYPES.find((x) => x.value === s.type);
   return (
     <Card className="print:break-inside-avoid">
@@ -565,7 +628,7 @@ export function AduPanel({ r, s, stateCode, base }: { r: RunAduResult; s: SavedA
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <AduComparison base={base} r={r} />
+        <AduComparison base={base} r={r} targets={targets} />
         <AduWorkings
           r={r}
           costPerSqft={s.costPerSqft}

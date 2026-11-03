@@ -16,7 +16,7 @@ import { MarketDataSummary } from "./market-data";
 import { BrrrrMetrics, BrrrrSteps, FlipMetrics, FlipStatement, StrategyOfferTools, rateStrategy, strategyChecks } from "./strategy-panels";
 import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type StrategyValue } from "@/lib/strategy";
 import { DealTools } from "./deal-tools";
-import { AduPanel } from "./adu-panels";
+import { AduPanel, aduGoalTargets } from "./adu-panels";
 import { AfterTaxSummary } from "./tax-panel";
 import { OtherEstimatesSummary } from "./other-estimates";
 import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
@@ -201,7 +201,7 @@ function BuyHoldAnalysis({
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
       <div id="adu" className="scroll-mt-28">
-        <SavedAdu record={record} analysis={a} />
+        <SavedAdu record={record} analysis={a} goals={goals} />
       </div>
 
       <div id="market" className="scroll-mt-28 space-y-5">
@@ -258,10 +258,10 @@ function FoldedFormulas() {
   );
 }
 
-function SavedAdu({ record, analysis }: { record: PropertyRecord; analysis: DealAnalysis }) {
+function SavedAdu({ record, analysis, goals }: { record: PropertyRecord; analysis: DealAnalysis; goals?: OfferGoals }) {
   const r = useMemo(() => (record.aduInputs ? runAdu(record.aduInputs, recordToInputs(record), analysis, record.state) : null), [record, analysis]);
   if (!r || !record.aduInputs) return null;
-  return <AduPanel r={r} s={record.aduInputs} stateCode={record.state?.toUpperCase() ?? null} base={analysis} />;
+  return <AduPanel r={r} s={record.aduInputs} stateCode={record.state?.toUpperCase() ?? null} base={analysis} targets={aduGoalTargets(goals)} />;
 }
 
 function RehabBudget({ plan, squareFeet }: { plan: RehabPlan; squareFeet: number | null }) {

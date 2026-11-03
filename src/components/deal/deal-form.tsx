@@ -45,7 +45,7 @@ import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals 
 import { buildRehabPlan, regionalFactor, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import { suggestAduRent } from "@/lib/finance/adu";
 import { defaultAduInputs, runAdu, type SavedAduInputs } from "@/lib/adu";
-import { AduComparison, AduSection } from "./adu-panels";
+import { AduComparison, AduSection, aduGoalTargets } from "./adu-panels";
 import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type CostEstimate } from "@/lib/estimates/costs";
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
@@ -790,7 +790,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               ADU scenario
               <span className="text-xs font-normal text-muted-foreground">compare before and after</span>
             </h3>
-            <AduComparison base={rentalView} r={adu} compact />
+            <AduComparison base={rentalView} r={adu} compact targets={strategy === "BUY_HOLD" ? aduGoalTargets(offerGoals) : {}} />
           </div>
         )}
         {flip && (

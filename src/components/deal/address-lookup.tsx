@@ -110,18 +110,24 @@ export function AddressLookup({
         {error && <p className="text-sm text-destructive">{error}</p>}
         {data && (
           <>
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-series-1/5 px-3 py-2">
-              <p className="flex-1 text-xs text-muted-foreground">
-                Fills property details, taxes, HOA, rent and ARV (and the price, if empty). You can change anything afterwards.
-              </p>
-              <Button type="button" variant="ghost" size="sm" onClick={() => run(true)} disabled={pending}>
-                <RefreshCw /> Refresh
-              </Button>
-              <Button type="button" onClick={apply}>
-                <CheckCircle2 /> Apply to this deal
-              </Button>
-            </div>
             <MarketDataSummary data={data} onOpenComps={onOpenComps} />
+            {/* The last step, after reading the estimates: put them into the deal. */}
+            <div className="flex flex-col gap-3 rounded-xl border-2 border-foreground/15 bg-muted/40 p-4 sm:flex-row sm:items-center">
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Use these numbers for this deal?</p>
+                <p className="text-xs text-muted-foreground">
+                  Fills property details, taxes, HOA, rent and ARV (and the price, if it&apos;s empty). You can change anything afterwards.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => run(true)} disabled={pending}>
+                  <RefreshCw /> Refresh data
+                </Button>
+                <Button type="button" size="lg" onClick={apply} className="flex-1 sm:flex-none">
+                  <CheckCircle2 /> Apply to this deal
+                </Button>
+              </div>
+            </div>
           </>
         )}
       </CardContent>
