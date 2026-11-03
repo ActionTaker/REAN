@@ -167,7 +167,7 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
                   <TableCell className="num text-right">{r.display.coc}</TableCell>
                   <TableCell className="num text-right">{r.display.dscr}</TableCell>
                   <TableCell><RatingBadge rating={r.rating} /></TableCell>
-                  <TableCell className="pr-4"><PropertyActions id={r.id} name={r.name} /></TableCell>
+                  <TableCell className="pr-4"><PropertyActions id={r.id} name={r.name} strategy={r.strategy} /></TableCell>
                 </TableRow>
               );
             })}

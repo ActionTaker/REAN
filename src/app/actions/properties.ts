@@ -8,6 +8,9 @@ import { requireUser } from "@/lib/auth-helpers";
 import { formOutputToData } from "@/lib/property-mapping";
 import { dealSchema, offerGoalsSchema, strategyInputsSchema, type DealFormValues } from "@/lib/validation/deal";
 import type { DealStatusValue } from "@/lib/constants";
+import { getSettings } from "@/lib/data/settings";
+import { strategyDefaultsFrom } from "@/lib/new-deal-defaults";
+import { STRATEGIES, type StrategyValue } from "@/lib/strategy";
 
 export type SaveDealResult = { ok: true; id: string } | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
 
@@ -52,10 +55,13 @@ export async function deleteProperty(id: string) {
   revalidateAll();
 }
 
-export async function duplicateProperty(id: string): Promise<string | null> {
+/** Copy a deal; with `asStrategy`, the copy is re-analyzed under that strategy (e.g. a Buy & Hold deal as a BRRRR). */
+export async function duplicateProperty(id: string, asStrategy?: StrategyValue): Promise<string | null> {
   const user = await requireUser();
   const src = await prisma.property.findFirst({ where: { id, userId: user.id } });
   if (!src) return null;
+  const target = asStrategy && STRATEGIES.some((s) => s.value === asStrategy) ? asStrategy : null;
+  const strategyInputs = src.strategyInputs ?? (target && target !== "BUY_HOLD" ? strategyDefaultsFrom(await getSettings()) : null);
   const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = src;
   // A copy is the user's own working deal, so it is no longer a sample.
   const copy = await prisma.property.create({
@@ -66,9 +72,10 @@ export async function duplicateProperty(id: string): Promise<string | null> {
       offerGoals: (rest.offerGoals ?? undefined) as Prisma.InputJsonValue | undefined,
       arvAnalysis: (rest.arvAnalysis ?? undefined) as Prisma.InputJsonValue | undefined,
       rentAnalysis: (rest.rentAnalysis ?? undefined) as Prisma.InputJsonValue | undefined,
-      strategyInputs: (rest.strategyInputs ?? undefined) as Prisma.InputJsonValue | undefined,
+      strategyInputs: (strategyInputs ?? undefined) as Prisma.InputJsonValue | undefined,
+      strategy: target ?? src.strategy,
       aduInputs: (rest.aduInputs ?? undefined) as Prisma.InputJsonValue | undefined,
-      name: `${src.name} (copy)`,
+      name: target ? `${src.name} (${STRATEGIES.find((s) => s.value === target)!.label})` : `${src.name} (copy)`,
       isSample: false,
       status: "ANALYZING",
     },

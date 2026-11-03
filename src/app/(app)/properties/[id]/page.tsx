@@ -61,7 +61,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             <Button size="sm" asChild>
               <Link href={`/properties/${p.id}/edit`}><Pencil /> Edit</Link>
             </Button>
-            <PropertyActions id={p.id} name={p.name} redirectAfterDelete="/properties" />
+            <PropertyActions id={p.id} name={p.name} strategy={p.strategy} redirectAfterDelete="/properties" />
           </div>
         </div>
       </div>

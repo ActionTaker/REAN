@@ -3,7 +3,8 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, FileText, GitCompareArrows, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Copy, FileText, GitCompareArrows, MoreHorizontal, Pencil, Repeat, Trash2 } from "lucide-react";
+import { STRATEGIES, type StrategyValue } from "@/lib/strategy";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,15 +27,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteProperty, duplicateProperty } from "@/app/actions/properties";
 
-export function PropertyActions({ id, name, redirectAfterDelete }: { id: string; name: string; redirectAfterDelete?: string }) {
+export function PropertyActions({ id, name, strategy, redirectAfterDelete }: { id: string; name: string; strategy?: string; redirectAfterDelete?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  const duplicate = () =>
+  const duplicate = (as?: StrategyValue) =>
     start(async () => {
-      const newId = await duplicateProperty(id);
+      const newId = await duplicateProperty(id, as);
       if (newId) {
-        toast.success("Copy created");
+        toast.success(as ? `Copy created as ${STRATEGIES.find((s) => s.value === as)?.label}` : "Copy created");
         router.push(`/properties/${newId}/edit`);
       }
     });
@@ -59,7 +60,13 @@ export function PropertyActions({ id, name, redirectAfterDelete }: { id: string;
           <DropdownMenuItem asChild>
             <Link href={`/properties/${id}/edit`}><Pencil /> Edit analysis</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={duplicate}><Copy /> Duplicate</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => duplicate()}><Copy /> Duplicate</DropdownMenuItem>
+          {strategy &&
+            STRATEGIES.filter((s) => s.value !== strategy).map((s) => (
+              <DropdownMenuItem key={s.value} onSelect={() => duplicate(s.value as StrategyValue)}>
+                <Repeat /> Analyze as {s.label}
+              </DropdownMenuItem>
+            ))}
           <DropdownMenuItem asChild>
             <Link href={`/compare?ids=${id}`}><GitCompareArrows /> Compare</Link>
           </DropdownMenuItem>
