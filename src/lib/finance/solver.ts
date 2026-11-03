@@ -54,7 +54,15 @@ export interface MaxPriceResult {
  * in, same NOI), so a bisection on price is exact to the $500 rounding.
  */
 export function maxPriceFor(input: DealInputs, goal: PriceGoal): MaxPriceResult {
-  const check = (p: D) => meets(analyzeDeal(withPrice(input, p), { yearOneOnly: true }), goal);
+  return maxPriceWhere(input, (i) => meets(analyzeDeal(i, { yearOneOnly: true }), goal));
+}
+
+/**
+ * Highest price at which `ok(repriced deal)` still holds, for any condition
+ * that gets harder as price rises (BRRRR cash left, flip profit, …).
+ */
+export function maxPriceWhere(input: DealInputs, ok: (repriced: DealInputs) => boolean): MaxPriceResult {
+  const check = (p: D) => ok(withPrice(input, p));
   const current = dec(input.purchasePrice);
   let hi = D.max(current.times(4), new D(2_000_000));
   if (check(hi)) return { price: hi, unbounded: true };

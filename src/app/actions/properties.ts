@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getCachedLookup } from "@/lib/property-data";
 import { requireUser } from "@/lib/auth-helpers";
 import { formOutputToData } from "@/lib/property-mapping";
-import { dealSchema, offerGoalsSchema, type DealFormValues } from "@/lib/validation/deal";
+import { dealSchema, offerGoalsSchema, strategyInputsSchema, type DealFormValues } from "@/lib/validation/deal";
 import type { DealStatusValue } from "@/lib/constants";
 
 export type SaveDealResult = { ok: true; id: string } | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
@@ -66,6 +66,7 @@ export async function duplicateProperty(id: string): Promise<string | null> {
       offerGoals: (rest.offerGoals ?? undefined) as Prisma.InputJsonValue | undefined,
       arvAnalysis: (rest.arvAnalysis ?? undefined) as Prisma.InputJsonValue | undefined,
       rentAnalysis: (rest.rentAnalysis ?? undefined) as Prisma.InputJsonValue | undefined,
+      strategyInputs: (rest.strategyInputs ?? undefined) as Prisma.InputJsonValue | undefined,
       name: `${src.name} (copy)`,
       isSample: false,
       status: "ANALYZING",
@@ -88,6 +89,22 @@ export async function saveOfferGoals(id: string, goals: unknown) {
   const parsed = offerGoalsSchema.safeParse(goals);
   if (!parsed.success) return { ok: false as const };
   await prisma.property.updateMany({ where: { id, userId: user.id }, data: { offerGoals: parsed.data as Prisma.InputJsonValue } });
+  revalidatePath(`/properties/${id}`);
+  return { ok: true as const };
+}
+
+/** Save BRRRR / Flip goals from the property page (merged into the deal's strategy inputs). */
+export async function saveStrategyGoals(id: string, goals: unknown) {
+  const user = await requireUser();
+  const parsed = strategyInputsSchema.shape.goals.safeParse(goals);
+  if (!parsed.success) return { ok: false as const };
+  const row = await prisma.property.findFirst({ where: { id, userId: user.id }, select: { strategyInputs: true } });
+  if (!row) return { ok: false as const };
+  const current = (row.strategyInputs as Record<string, unknown> | null) ?? {};
+  await prisma.property.updateMany({
+    where: { id, userId: user.id },
+    data: { strategyInputs: { ...current, goals: parsed.data } as Prisma.InputJsonValue },
+  });
   revalidatePath(`/properties/${id}`);
   return { ok: true as const };
 }

@@ -1,4 +1,4 @@
-import { D, ONE, TWELVE, ZERO, dec, pct, safeDiv, sum } from "./decimal";
+import { D, ONE, TWELVE, ZERO, dec, pct, safeDiv, sum, type DecimalLike } from "./decimal";
 import { irr } from "./irr";
 import { amortizationByYear, monthlyPayment } from "./mortgage";
 import type { DealAnalysis, DealInputs, ExpenseLine, YearProjection } from "./types";
@@ -15,6 +15,12 @@ export interface AnalyzeOptions {
    * max-price solver, which re-runs the analysis many times.
    */
   yearOneOnly?: boolean;
+  /**
+   * Cash actually left in the deal, when it isn't down + closing + rehab —
+   * e.g. after a BRRRR cash-out refinance. Drives cash-on-cash, ROI, IRR and
+   * equity multiple. Zero or less = all cash recovered (those ratios become null).
+   */
+  cashInvested?: DecimalLike;
 }
 
 export function analyzeDeal(input: DealInputs, opts: AnalyzeOptions = {}): DealAnalysis {
@@ -26,7 +32,8 @@ export function analyzeDeal(input: DealInputs, opts: AnalyzeOptions = {}): DealA
   const downPaymentRate = input.isCashPurchase ? ONE : D.min(pct(input.downPaymentPercent), ONE);
   const downPayment = purchasePrice.times(downPaymentRate);
   const loanAmount = purchasePrice.minus(downPayment);
-  const totalCashInvested = downPayment.plus(closingCosts).plus(rehabCosts);
+  const totalCashInvested =
+    opts.cashInvested !== undefined ? D.max(dec(opts.cashInvested), ZERO) : downPayment.plus(closingCosts).plus(rehabCosts);
   const totalProjectCost = purchasePrice.plus(closingCosts).plus(rehabCosts);
   const loanToValue = safeDiv(loanAmount, purchasePrice);
   const arvInput = dec(input.afterRepairValue);

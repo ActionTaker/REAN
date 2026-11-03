@@ -19,12 +19,24 @@ import { SampleBadge } from "@/components/common/sample-badge";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
 import { DEAL_STATUSES, PROPERTY_TYPES, US_STATES } from "@/lib/constants";
-import { analyzeDeal, chartNumber, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
+import { analyzeBrrrr, analyzeDeal, analyzeFlip, chartNumber, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
 import { formValuesToInputs } from "@/lib/property-mapping";
 import { dealSchema, type DealFormOutput, type DealFormValues } from "@/lib/validation/deal";
 import { saveDeal } from "@/app/actions/properties";
 import { RehabEstimator } from "./rehab-estimator";
 import { DealTools } from "./deal-tools";
+import {
+  BrrrrMetrics,
+  BrrrrSteps,
+  FlipMetrics,
+  FlipStatement,
+  StrategyInputCards,
+  StrategyOfferTools,
+  StrategyPicker,
+  rateStrategy,
+  strategyChecks,
+} from "./strategy-panels";
+import { resolveStrategyInputs, toEngineInputs, type SavedStrategyInputs, type StrategyValue } from "@/lib/strategy";
 import { CompsArvSheet } from "./comps-arv-sheet";
 import { emptyArvAnalysis, type ArvAnalysis } from "@/lib/property-data/arv-analysis";
 import { perUnitSubject } from "@/lib/property-data/comps-arv";
@@ -67,7 +79,23 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
   const analysis = useMemo(() => analyzeDeal(liveInputs), [liveInputs]);
   // Rated against this deal's own goals (set in Max offer price below).
   const offerGoals = useMemo(() => resolveOfferGoals(values.offerGoals as OfferGoals | null, criteria), [values.offerGoals, criteria]);
-  const { checks, rating } = useMemo(() => rateAgainstGoals(analysis, offerGoals), [analysis, offerGoals]);
+  const { checks: holdChecks, rating: holdRating } = useMemo(() => rateAgainstGoals(analysis, offerGoals), [analysis, offerGoals]);
+
+  // ── Strategy (Buy & Hold / BRRRR / Flip) ──
+  const strategy = ((values.strategy as StrategyValue | undefined) ?? "BUY_HOLD") as StrategyValue;
+  const sSaved = useMemo(
+    () => resolveStrategyInputs(values.strategyInputs as SavedStrategyInputs | null, String(criteria.minDscr)),
+    [values.strategyInputs, criteria.minDscr],
+  );
+  const sEngine = useMemo(() => toEngineInputs(sSaved), [sSaved]);
+  const brrrr = useMemo(() => (strategy === "BRRRR" ? analyzeBrrrr(liveInputs, sEngine) : undefined), [strategy, liveInputs, sEngine]);
+  const flip = useMemo(() => (strategy === "FLIP" ? analyzeFlip(liveInputs, sEngine) : undefined), [strategy, liveInputs, sEngine]);
+  const setStrategyInputs = (next: SavedStrategyInputs) => setValue("strategyInputs", next as never, { shouldDirty: true });
+  const { checks, rating } = useMemo(() => {
+    if (strategy === "BUY_HOLD") return { checks: holdChecks, rating: holdRating };
+    const c = strategyChecks(strategy, sSaved.goals, { brrrr, flip }, liveInputs);
+    return { checks: c, rating: rateStrategy(strategy, c, { brrrr, flip }) };
+  }, [strategy, holdChecks, holdRating, sSaved.goals, brrrr, flip, liveInputs]);
   const isCash = !!values.isCashPurchase;
   const [lookupAddress, setLookupAddress] = useState<string | null>(null);
 
@@ -218,6 +246,14 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     </div>
   );
 
+  const financingFields = (
+    <div className="grid gap-4 sm:grid-cols-3">
+            {num("downPaymentPercent", "Down payment", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `= ${formatCurrency(analysis.downPayment)} · loan ${formatCurrency(analysis.loanAmount)}` })}
+            {num("interestRate", "Interest rate", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `P&I ${formatCurrency(analysis.monthlyMortgagePayment, { cents: true })}/mo` })}
+            {num("loanTermYears", "Loan term", { suffix: "years", disabled: isCash })}
+    </div>
+  );
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Own grid so the sticky Live analysis panel stops at the end of the inputs
@@ -230,6 +266,8 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             <SampleBadge /> You&apos;re editing a sample property. Changes are saved, but it stays labelled as sample data.
           </div>
         )}
+
+        <StrategyPicker value={strategy} onChange={(v) => setValue("strategy", v as never, { shouldDirty: true })} />
 
         <AddressLookup
           initialAddress={formatAddress({
@@ -296,6 +334,8 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
                   <button type="button" onClick={() => setCompsOpen("sale")} className="font-medium text-foreground underline underline-offset-2">
                     Review comps & ARV
                   </button>
+                ) : strategy !== "BUY_HOLD" && !analysis.afterRepairValue ? (
+                  <span className="text-caution">Needed for {strategy === "BRRRR" ? "the refinance" : "the sale"}</span>
                 ) : analysis.equityCreated ? (
                   "Calculation shown below"
                 ) : (
@@ -307,6 +347,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           <ArvBreakdown a={analysis} className="mt-4" />
         </Section>
 
+        {strategy === "BUY_HOLD" ? (
         <Section
           title="Financing"
           description="Fixed-rate mortgage assumptions."
@@ -323,14 +364,24 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             />
           }
         >
-          <div className="grid gap-4 sm:grid-cols-3">
-            {num("downPaymentPercent", "Down payment", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `= ${formatCurrency(analysis.downPayment)} · loan ${formatCurrency(analysis.loanAmount)}` })}
-            {num("interestRate", "Interest rate", { suffix: "%", disabled: isCash, hint: isCash ? undefined : `P&I ${formatCurrency(analysis.monthlyMortgagePayment, { cents: true })}/mo` })}
-            {num("loanTermYears", "Loan term", { suffix: "years", disabled: isCash })}
-          </div>
+          {financingFields}
         </Section>
+        ) : (
+          <StrategyInputCards
+            strategy={strategy}
+            s={sSaved}
+            onChange={setStrategyInputs}
+            hold={(brrrr ?? flip)!.hold}
+            conventionalFields={financingFields}
+            arv={dec(liveInputs.afterRepairValue as string).gt(0) ? dec(liveInputs.afterRepairValue as string) : null}
+          />
+        )}
 
-        <Section title="Rental income" description="Enter the total for all units.">
+        {strategy !== "FLIP" && (
+        <Section
+          title="Rental income"
+          description={strategy === "BRRRR" ? "Rent once the rehab is done — this pays the refinanced loan." : "Enter the total for all units."}
+        >
           <div className="grid gap-4 sm:grid-cols-3">
             {num("monthlyRent", "Monthly rent (all units)", {
               prefix: "$",
@@ -345,7 +396,17 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             {num("vacancyRate", "Vacancy rate", { suffix: "%", hint: "5–8% is common for SFR" })}
           </div>
         </Section>
+        )}
 
+        {strategy === "FLIP" ? (
+          <Section title="Carrying costs" description="Owned while you rehab and sell: taxes, insurance and HOA (utilities are under Rehab & holding).">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {num("propertyTaxAnnual", "Property taxes", { prefix: "$", suffix: "/yr" })}
+              {num("insuranceAnnual", "Insurance", { prefix: "$", suffix: "/yr", hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" /> })}
+              {num("hoaMonthly", "HOA fees", { prefix: "$", suffix: "/mo" })}
+            </div>
+          </Section>
+        ) : (
         <Section title="Operating expenses" description="Fixed costs plus reserves estimated as a share of income.">
           <div className="grid gap-4 sm:grid-cols-3">
             {num("propertyTaxAnnual", "Property taxes", { prefix: "$", suffix: "/yr" })}
@@ -359,7 +420,9 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             {num("managementPercent", "Property management", { suffix: "% coll.", hint: "Of collected rent (after vacancy)" })}
           </div>
         </Section>
+        )}
 
+        {strategy !== "FLIP" && (
         <Section title="Long-term assumptions" description="Used for the multi-year projection, sale and IRR. These are assumptions, not forecasts.">
           <div className="grid gap-4 sm:grid-cols-5">
             {num("appreciationRate", "Appreciation", { suffix: "%/yr" })}
@@ -369,6 +432,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             {num("holdingPeriodYears", "Hold period", { suffix: "yrs" })}
           </div>
         </Section>
+        )}
 
         {marketData && (
           <CompsArvSheet
@@ -447,10 +511,11 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           rating={rating}
           checks={checks}
           stacked
-          cashFlowNote={!cashFlowRequired(offerGoals) && analysis.monthlyCashFlow.isNegative()}
+          cashFlowNote={strategy === "BUY_HOLD" && !cashFlowRequired(offerGoals) && analysis.monthlyCashFlow.isNegative()}
           footer="Goals come from Max offer price below — change the strategy or targets there."
         />
 
+        {strategy === "BUY_HOLD" && (
         <Tabs defaultValue="summary">
           <TabsList className="w-full">
             <TabsTrigger value="summary">Summary</TabsTrigger>
@@ -477,16 +542,59 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             </div>
           </TabsContent>
         </Tabs>
+        )}
+        {brrrr && (
+          <Tabs defaultValue="summary" key="brrrr">
+            <TabsList className="w-full">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="steps">Step by step</TabsTrigger>
+              <TabsTrigger value="rental">Rental</TabsTrigger>
+            </TabsList>
+            <TabsContent value="summary" className="mt-3">
+              <BrrrrMetrics b={brrrr} />
+            </TabsContent>
+            <TabsContent value="steps" className="mt-3 rounded-xl border bg-card p-4 shadow-xs">
+              <BrrrrSteps b={brrrr} input={liveInputs} />
+            </TabsContent>
+            <TabsContent value="rental" className="mt-3 rounded-xl border bg-card p-2 shadow-xs">
+              <CashFlowStatement a={brrrr.rental} />
+            </TabsContent>
+          </Tabs>
+        )}
+        {flip && (
+          <Tabs defaultValue="summary" key="flip">
+            <TabsList className="w-full">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="pl">Profit & loss</TabsTrigger>
+            </TabsList>
+            <TabsContent value="summary" className="mt-3">
+              <FlipMetrics f={flip} />
+            </TabsContent>
+            <TabsContent value="pl" className="mt-3 rounded-xl border bg-card p-4 shadow-xs">
+              <FlipStatement f={flip} input={liveInputs} />
+            </TabsContent>
+          </Tabs>
+        )}
         <Disclaimer />
       </aside>
 
       </div>
 
-      <DealTools
-        inputs={liveInputs}
-        goals={offerGoals}
-        onGoalsChange={(g) => setValue("offerGoals", g as never, { shouldDirty: true })}
-      />
+      {strategy === "BUY_HOLD" ? (
+        <DealTools
+          inputs={liveInputs}
+          goals={offerGoals}
+          onGoalsChange={(g) => setValue("offerGoals", g as never, { shouldDirty: true })}
+        />
+      ) : (
+        <StrategyOfferTools
+          strategy={strategy}
+          inputs={liveInputs}
+          s={sEngine}
+          goals={sSaved.goals}
+          onGoalsChange={(g) => setStrategyInputs({ ...sSaved, goals: g })}
+        />
+      )}
     </form>
   );
 }

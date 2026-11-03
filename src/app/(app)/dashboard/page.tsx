@@ -17,9 +17,11 @@ import { listProperties } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { analyzeRecords, relativeTime } from "@/lib/analyze-record";
 import { requireUser } from "@/lib/auth-helpers";
-import { METRICS, chartNumber, formatCurrency, formatPercent, summarizePortfolio } from "@/lib/finance";
+import { METRICS, chartNumber, dec, formatCurrency, formatPercent, summarizePortfolio } from "@/lib/finance";
 import { formatAddress } from "@/lib/property-mapping";
 import { cn } from "@/lib/utils";
+import { StrategyBadge } from "@/components/common/strategy-badge";
+import type { AnalyzedProperty } from "@/lib/analyze-record";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -32,7 +34,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ownCount = all.length - sampleCount;
   const records = excludeSamples ? all.filter((p) => !p.isSample) : all;
   const items = analyzeRecords(records, settings);
-  const s = summarizePortfolio(items.map((i) => i.analysis));
+  // Flips aren't rentals: keep them out of rental totals and report their profit separately.
+  const rentalItems = items.filter((i) => i.strategy !== "FLIP");
+  const flips = items.filter((i) => i.flip);
+  const s = summarizePortfolio(rentalItems.map((i) => i.analysis));
+  const flipProfit = flips.reduce((acc, i) => acc.plus(i.flip!.profit), dec(0));
   const firstName = user.name?.split(" ")[0];
 
   const header = (
@@ -61,7 +67,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     );
   }
 
-  const chartItems = [...items].sort((a, b) => b.analysis.monthlyCashFlow.comparedTo(a.analysis.monthlyCashFlow));
+  const chartItems = [...rentalItems].sort((a, b) => b.analysis.monthlyCashFlow.comparedTo(a.analysis.monthlyCashFlow));
   const label = (name: string, isSample: boolean) => (isSample ? `${name} (sample)` : name);
 
   return (
@@ -104,7 +110,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-12">
-            <MetricCard className="md:col-span-3" label="Properties analyzed" value={String(s.count)} sub={excludeSamples ? "Your own" : sampleCount ? `${sampleCount} sample` : "All yours"} />
+            <MetricCard
+              className="md:col-span-3"
+              label="Properties analyzed"
+              value={String(items.length)}
+              sub={[excludeSamples ? "Your own" : sampleCount ? `${sampleCount} sample` : "All yours", flips.length ? `${flips.length} flip${flips.length > 1 ? "s" : ""}` : null].filter(Boolean).join(" · ")}
+            />
             <MetricCard className="md:col-span-3" label="Total purchase price" value={formatCurrency(s.totalPurchasePrice, { compact: true })} sub={formatCurrency(s.totalPurchasePrice)} />
             <MetricCard className="md:col-span-3" label="Total initial investment" value={formatCurrency(s.totalCashInvested, { compact: true })} sub="Cash required" metric={METRICS.totalCashInvested} />
             <MetricCard className="md:col-span-3" label="Monthly rental income" value={formatCurrency(s.totalMonthlyIncome)} sub="Gross scheduled" />
@@ -112,6 +123,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <MetricCard className="md:col-span-4" label="Average cap rate" value={formatPercent(s.averageCapRate)} sub={`Weighted ${formatPercent(s.weightedCapRate)}`} metric={METRICS.capRate} />
             <MetricCard className="col-span-2 md:col-span-4" label="Average cash-on-cash" value={formatPercent(s.averageCashOnCash)} tone={toneFor(s.averageCashOnCash)} sub="Simple mean" metric={METRICS.cashOnCash} />
           </div>
+          {flips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border bg-card px-4 py-3 text-sm shadow-xs">
+              <StrategyBadge strategy="FLIP" />
+              <span>
+                <span className="text-muted-foreground">Projected flip profit </span>
+                <span className={cn("num font-semibold", flipProfit.isNegative() ? "text-negative" : "text-positive")}>{formatCurrency(flipProfit)}</span>
+                <span className="text-muted-foreground"> across {flips.length} flip{flips.length > 1 ? "s" : ""}</span>
+              </span>
+              <span className="text-xs text-muted-foreground">Flips are excluded from the rental totals above. BRRRR deals count with their numbers after the refinance.</span>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -168,21 +190,34 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.slice(0, 5).map(({ record: r, analysis: a, rating }) => (
+                  {items.slice(0, 5).map(({ record: r, analysis: a, rating, flip }) => (
                     <TableRow key={r.id}>
                       <TableCell className="pl-6">
                         <div className="flex items-center gap-2">
                           <Link href={`/properties/${r.id}`} className="font-medium hover:underline">{r.name}</Link>
+                          <StrategyBadge strategy={r.strategy} />
                           {r.isSample && <SampleBadge />}
                         </div>
                         <div className="text-xs text-muted-foreground">{formatAddress({ ...r, address: null })}</div>
                       </TableCell>
-                      <TableCell className="num text-right">{formatCurrency(a.purchasePrice)}</TableCell>
-                      <TableCell className={cn("num text-right font-medium", a.monthlyCashFlow.isNegative() ? "text-negative" : "text-positive")}>
-                        {formatCurrency(a.monthlyCashFlow)}
-                      </TableCell>
-                      <TableCell className="num text-right">{formatPercent(a.capRate)}</TableCell>
-                      <TableCell className="num text-right">{formatPercent(a.cashOnCash)}</TableCell>
+                      <TableCell className="num text-right">{formatCurrency(dec(r.purchasePrice))}</TableCell>
+                      {flip ? (
+                        <>
+                          <TableCell className={cn("num text-right font-medium", flip.profit.isNegative() ? "text-negative" : "text-positive")}>
+                            {formatCurrency(flip.profit)} <span className="text-[11px] font-normal text-muted-foreground">profit</span>
+                          </TableCell>
+                          <TableCell className="num text-right text-muted-foreground">—</TableCell>
+                          <TableCell className="num text-right">{formatPercent(flip.roi)} <span className="text-[11px] text-muted-foreground">ROI</span></TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className={cn("num text-right font-medium", a.monthlyCashFlow.isNegative() ? "text-negative" : "text-positive")}>
+                            {formatCurrency(a.monthlyCashFlow)}
+                          </TableCell>
+                          <TableCell className="num text-right">{formatPercent(a.capRate)}</TableCell>
+                          <TableCell className="num text-right">{formatPercent(a.cashOnCash)}</TableCell>
+                        </>
+                      )}
                       <TableCell><RatingBadge rating={rating} /></TableCell>
                       <TableCell className="pr-6 text-right text-xs text-muted-foreground">{relativeTime(r.updatedAt)}</TableCell>
                     </TableRow>
@@ -196,7 +231,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <div className="flex items-end justify-between">
               <div>
                 <h2 className="text-sm font-semibold">Saved properties</h2>
-                <p className="text-xs text-muted-foreground">Ranked by cash-on-cash return</p>
+                <p className="text-xs text-muted-foreground">Ranked by return — cash-on-cash for rentals, ROI for flips</p>
               </div>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/properties">Manage <ArrowRight /></Link>
@@ -204,7 +239,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[...items]
-                .sort((a, b) => (b.analysis.cashOnCash?.toNumber() ?? -Infinity) - (a.analysis.cashOnCash?.toNumber() ?? -Infinity))
+                .sort((a, b) => rankReturn(b) - rankReturn(a))
                 .slice(0, 6)
                 .map((i) => (
                   <PropertyCard key={i.record.id} item={i} />
@@ -217,4 +252,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <Disclaimer />
     </div>
   );
+}
+
+/** Return used to rank saved deals: ROI for flips, cash-on-cash otherwise (an all-cash-out BRRRR ranks first). */
+function rankReturn(i: AnalyzedProperty): number {
+  if (i.flip) return i.flip.roi?.toNumber() ?? -Infinity;
+  if (i.brrrr?.infiniteReturn) return Infinity;
+  return i.analysis.cashOnCash?.toNumber() ?? -Infinity;
 }

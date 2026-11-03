@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SampleBadge } from "@/components/common/sample-badge";
+import { StrategyBadge } from "@/components/common/strategy-badge";
 import { StatusBadge } from "@/components/common/status-badge";
 import { RatingBadge } from "@/components/common/rating-badge";
 import { PropertyActions } from "@/components/deal/property-actions";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 export interface PropertyRow {
   id: string;
+  strategy: string;
   name: string;
   isSample: boolean;
   status: string;
@@ -136,6 +138,7 @@ export function PropertiesTable({ rows }: { rows: PropertyRow[] }) {
                   <TableCell className="min-w-56">
                     <div className="flex items-center gap-2">
                       <Link href={`/properties/${r.id}`} className="font-medium hover:underline">{r.name}</Link>
+                      <StrategyBadge strategy={r.strategy} />
                       {r.isSample && <SampleBadge />}
                     </div>
                     <div className="text-xs text-muted-foreground">

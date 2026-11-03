@@ -9,9 +9,10 @@ import { RatingBadge } from "@/components/common/rating-badge";
 import { listProperties } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { analyzeRecords, relativeTime } from "@/lib/analyze-record";
-import { formatCurrency, formatPercent } from "@/lib/finance";
+import { dec, formatCurrency, formatPercent } from "@/lib/finance";
 import { formatAddress } from "@/lib/property-mapping";
 import { cn } from "@/lib/utils";
+import { StrategyBadge } from "@/components/common/strategy-badge";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -33,7 +34,7 @@ export default async function ReportsPage() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {items.map(({ record: r, analysis: a, rating }) => (
+          {items.map(({ record: r, analysis: a, rating, flip, brrrr }) => (
             <Link
               key={r.id}
               href={`/reports/${r.id}`}
@@ -45,16 +46,30 @@ export default async function ReportsPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="truncate font-medium group-hover:underline">{r.name} — Investment Analysis</p>
+                  <StrategyBadge strategy={r.strategy} />
                   {r.isSample && <SampleBadge />}
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{formatAddress(r) || "No address"} · Updated {relativeTime(r.updatedAt)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                  <span className="num">{formatCurrency(a.purchasePrice)}</span>
-                  <span className={cn("num font-medium", a.monthlyCashFlow.isNegative() ? "text-negative" : "text-positive")}>
-                    {formatCurrency(a.monthlyCashFlow)}/mo
-                  </span>
-                  <span className="num">Cap {formatPercent(a.capRate)}</span>
-                  <span className="num">CoC {formatPercent(a.cashOnCash)}</span>
+                  <span className="num">{formatCurrency(dec(r.purchasePrice))}</span>
+                  {flip ? (
+                    <>
+                      <span className={cn("num font-medium", flip.profit.isNegative() ? "text-negative" : "text-positive")}>{formatCurrency(flip.profit)} profit</span>
+                      <span className="num">ROI {formatPercent(flip.roi)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={cn("num font-medium", a.monthlyCashFlow.isNegative() ? "text-negative" : "text-positive")}>
+                        {formatCurrency(a.monthlyCashFlow)}/mo
+                      </span>
+                      {brrrr ? (
+                        <span className="num">Cash left {brrrr.cashLeftInDeal.gt(0) ? formatCurrency(brrrr.cashLeftInDeal) : "$0"}</span>
+                      ) : (
+                        <span className="num">Cap {formatPercent(a.capRate)}</span>
+                      )}
+                      <span className="num">CoC {brrrr?.infiniteReturn ? "∞" : formatPercent(a.cashOnCash)}</span>
+                    </>
+                  )}
                   <RatingBadge rating={rating} />
                 </div>
               </div>

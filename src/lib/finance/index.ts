@@ -9,3 +9,5 @@ export * from "./portfolio";
 export * from "./types";
 export * from "./solver";
 export * from "./stress";
+export * from "./strategies";
+export * from "./strategy-tools";

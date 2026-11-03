@@ -37,6 +37,16 @@ The Deal Analyzer can fill a deal in from an address using [RentCast](https://ww
 
 Setup: put `RENTCAST_API_KEY=...` in `.env`. Lookups are cached per address for 30 days in `PropertyDataCache`. When a deal is saved, the server re-reads the lookup from that cache and stores it on the deal (`Property.marketData`), so the detail page and report show where the numbers came from. To try the feature without a key, set `PROPERTY_DATA_PROVIDER=demo`. The numbers are synthetic and clearly labelled as such.
 
+## Strategies: Buy & Hold, BRRRR, Flip
+
+Each deal has a strategy, chosen at the top of the analyzer (`Property.strategy`). BRRRR and Flip inputs and goals are stored in `Property.strategyInputs`.
+
+- **Shared purchase-and-hold phase** (`src/lib/finance/strategies.ts`): cash, hard money (interest-only, % of purchase plus % of rehab funded, points) or a conventional loan; months held; carrying costs (taxes, insurance, HOA, vacant utilities). Interest on hard money is charged on the full loan from day one, which is conservative.
+- **BRRRR:** a cash-out refinance at a % of ARV pays off the purchase loan and refinance closing costs. The key results are **cash left in the deal**, % recovered, and cash flow, cash-on-cash (∞ when nothing is left in), DSCR and a 30-year projection, all on the post-refinance rental.
+- **Flip:** sale price (defaults to ARV) minus selling costs gives net profit, ROI on cash, annualized ROI, margin and break-even sale price.
+- **Max offer price and stress test per strategy** (`strategy-tools.ts`): BRRRR solves for the price at which cash left ≤ target; post-refinance cash flow and DSCR are shown as checks, since price doesn't affect them. Flip solves for profit ≥ $X and ROI ≥ Y%. Both include the 70% rule. The stress tests cover a lower ARV or sale price, rehab overruns, longer holds, a higher refinance rate and lower rent.
+- Lists, dashboard, comparison and reports are strategy-aware. Flips are excluded from rental totals and their profit is shown separately.
+
 ## Comps & ARV / Comps & Rent
 
 `src/lib/property-data/comps-arv.ts` uses one appraiser-style engine for both sales comps (ARV) and rental comps (market rent per unit).

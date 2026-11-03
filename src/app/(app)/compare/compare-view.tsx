@@ -23,13 +23,14 @@ import {
   formatCurrency,
   formatPercent,
   formatRatio,
-  type D,
+  D,
   type DealAnalysis,
   type InvestmentCriteria,
   type MetricDefinition,
 } from "@/lib/finance";
 import { formatAddress, recordToInputs, type PropertyRecord } from "@/lib/property-mapping";
-import { rateAgainstGoals, resolveOfferGoals } from "@/lib/offer-goals";
+import { analyzeRecords, type AnalyzedProperty } from "@/lib/analyze-record";
+import { StrategyBadge } from "@/components/common/strategy-badge";
 import { cn } from "@/lib/utils";
 
 interface Row {
@@ -44,9 +45,10 @@ interface Row {
 const money = (v: D | null) => formatCurrency(v);
 const pct = (v: D | null) => formatPercent(v);
 
-const GROUPS: { title: string; rows: Row[] }[] = [
+const GROUPS: { title: string; view: "base" | "rental"; rows: Row[] }[] = [
   {
     title: "Acquisition",
+    view: "base",
     rows: [
       { label: "Purchase price", get: (a) => a.purchasePrice, format: money },
       { label: "After-repair value", metric: METRICS.afterRepairValue, get: (a) => a.afterRepairValue, format: money },
@@ -59,6 +61,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   },
   {
     title: "Income & cash flow",
+    view: "rental",
     rows: [
       { label: "Gross income / mo", get: (a) => a.grossMonthlyIncome, format: money, better: "high" },
       { label: "Operating expenses / mo", get: (a) => a.monthlyOperatingExpenses, format: money },
@@ -69,6 +72,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   },
   {
     title: "Returns & ratios",
+    view: "rental",
     rows: [
       { label: "Cap rate", metric: METRICS.capRate, get: (a) => a.capRate, format: pct, better: "high" },
       { label: "Cash-on-cash", metric: METRICS.cashOnCash, get: (a) => a.cashOnCash, format: pct, better: "high" },
@@ -81,12 +85,22 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   },
   {
     title: "Long-term (projected)",
+    view: "rental",
     rows: [
       { label: "IRR", metric: METRICS.irr, get: (a) => a.sale.irr, format: pct, better: "high" },
       { label: "Equity multiple", metric: METRICS.equityMultiple, get: (a) => a.sale.equityMultiple, format: (v) => formatRatio(v, 2, "×"), better: "high" },
       { label: "Total profit", get: (a) => a.sale.totalProfit, format: money, better: "high" },
     ],
   },
+];
+
+/** BRRRR / Flip outcomes; blank for deals of another strategy. */
+const STRATEGY_ROWS: { label: string; get: (x: AnalyzedProperty) => D | null; format: (v: D | null) => string; better?: "high" | "low" }[] = [
+  { label: "BRRRR · cash left in deal", get: (x) => (x.brrrr ? D.max(x.brrrr.cashLeftInDeal, 0) : null), format: money, better: "low" },
+  { label: "BRRRR · cash back at refinance", get: (x) => x.brrrr?.cashOut ?? null, format: money, better: "high" },
+  { label: "Flip · net profit", get: (x) => x.flip?.profit ?? null, format: money, better: "high" },
+  { label: "Flip · ROI on cash", get: (x) => x.flip?.roi ?? null, format: pct, better: "high" },
+  { label: "Flip · annualized ROI", get: (x) => x.flip?.annualizedRoi ?? null, format: pct, better: "high" },
 ];
 
 function bestIndex(values: (D | null)[], better?: "high" | "low"): number | null {
@@ -112,12 +126,17 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
   );
   const analyses = useMemo(
     () =>
-      selected.map((p) => {
-        const a = analyzeDeal(recordToInputs(p));
-        return { p, a, rating: rateAgainstGoals(a, resolveOfferGoals(p.offerGoals, criteria)).rating };
-      }),
+      analyzeRecords(selected, criteria).map((x) => ({
+        p: x.record,
+        x,
+        // The deal as entered (purchase rows) vs. its rental view (post-refi for BRRRR, none for flips).
+        base: analyzeDeal(recordToInputs(x.record)),
+        a: x.flip ? null : x.analysis,
+        rating: x.rating,
+      })),
     [selected, criteria],
   );
+  const hasStrategyDeals = analyses.some(({ x }) => x.strategy !== "BUY_HOLD");
 
   const setIds = (ids: string[]) => router.replace(`${pathname}?ids=${ids.join(",")}`, { scroll: false });
   const available = properties.filter((p) => !selectedIds.includes(p.id));
@@ -182,7 +201,8 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
                 <CardHeader><CardTitle className="text-xs font-medium text-muted-foreground">{c.title}</CardTitle></CardHeader>
                 <CardContent>
                   <CompareChart
-                    data={analyses.map(({ p, a }, i) => ({ name: p.name, value: c.get(a), slot: i }))}
+                    // Rental charts: flips have no rental numbers, so they're left out (colors keep each deal's slot).
+                    data={analyses.flatMap(({ p, a }, i) => (a ? [{ name: p.name, value: c.get(a), slot: i }] : []))}
                     format={c.format}
                     axisFormat={c.axis}
                   />
@@ -201,6 +221,7 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
                       <div className="flex items-center gap-2">
                         <span className="size-2 shrink-0 rounded-full" style={{ background: SERIES[i] }} />
                         <Link href={`/properties/${p.id}`} className="font-semibold text-foreground hover:underline">{p.name}</Link>
+                        <StrategyBadge strategy={p.strategy} />
                       </div>
                       <div className="mt-0.5 text-xs font-normal">{[formatAddress({ ...p, address: null }), propertyTypeLabel(p.propertyType)].filter(Boolean).join(" · ")}</div>
                       <div className="mt-1.5 flex items-center gap-1.5">
@@ -213,8 +234,11 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
               </TableHeader>
               <TableBody>
                 {GROUPS.map((g) => (
-                  <GroupRows key={g.title} group={g} analyses={analyses.map((x) => x.a)} />
+                  <GroupRows key={g.title} title={g.title} rows={g.rows} values={(row) => analyses.map((x) => (g.view === "base" ? row.get(x.base) : x.a ? row.get(x.a) : null))} count={analyses.length} />
                 ))}
+                {hasStrategyDeals && (
+                  <GroupRows title="BRRRR & Flip" rows={STRATEGY_ROWS} values={(row) => analyses.map(({ x }) => row.get(x))} count={analyses.length} />
+                )}
               </TableBody>
             </Table>
           </div>
@@ -225,16 +249,26 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
   );
 }
 
-function GroupRows({ group, analyses }: { group: (typeof GROUPS)[number]; analyses: DealAnalysis[] }) {
+function GroupRows<R extends { label: string; metric?: MetricDefinition; format: (v: D | null) => string; better?: "high" | "low" }>({
+  title,
+  rows,
+  values: valuesFor,
+  count,
+}: {
+  title: string;
+  rows: R[];
+  values: (row: R) => (D | null)[];
+  count: number;
+}) {
   return (
     <>
       <TableRow className="bg-muted/40 hover:bg-muted/40">
-        <TableCell colSpan={analyses.length + 1} className="pl-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {group.title}
+        <TableCell colSpan={count + 1} className="pl-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
         </TableCell>
       </TableRow>
-      {group.rows.map((row) => {
-        const values = analyses.map(row.get);
+      {rows.map((row) => {
+        const values = valuesFor(row);
         const best = bestIndex(values, row.better);
         return (
           <TableRow key={row.label}>

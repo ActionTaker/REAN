@@ -1,18 +1,46 @@
-import { analyzeDeal, type DealAnalysis, type DealRating, type InvestmentCriteria } from "@/lib/finance";
+import {
+  analyzeBrrrr,
+  analyzeDeal,
+  analyzeFlip,
+  type BrrrrAnalysis,
+  type DealAnalysis,
+  type DealRating,
+  type FlipAnalysis,
+  type InvestmentCriteria,
+} from "@/lib/finance";
 import { rateAgainstGoals, resolveOfferGoals } from "@/lib/offer-goals";
 import { recordToInputs, type PropertyRecord } from "@/lib/property-mapping";
+import { resolveStrategyInputs, toEngineInputs, type StrategyValue } from "@/lib/strategy";
+import { rateStrategy, strategyChecks } from "@/lib/strategy-rating";
 
 export interface AnalyzedProperty {
   record: PropertyRecord;
+  strategy: StrategyValue;
+  /**
+   * The rental view of the deal: Buy & Hold as entered; BRRRR after the refinance
+   * (returns on cash left in the deal). For flips it's only a placeholder — use `flip`.
+   */
   analysis: DealAnalysis;
   rating: DealRating;
+  brrrr?: BrrrrAnalysis;
+  flip?: FlipAnalysis;
 }
 
 export function analyzeRecords(records: PropertyRecord[], criteria: InvestmentCriteria): AnalyzedProperty[] {
   return records.map((record) => {
-    const analysis = analyzeDeal(recordToInputs(record));
-    // Each deal is rated against its own goals (falling back to Settings criteria).
-    return { record, analysis, rating: rateAgainstGoals(analysis, resolveOfferGoals(record.offerGoals, criteria)).rating };
+    const inputs = recordToInputs(record);
+    const strategy = record.strategy ?? "BUY_HOLD";
+    if (strategy === "BUY_HOLD") {
+      const analysis = analyzeDeal(inputs);
+      // Each deal is rated against its own goals (falling back to Settings criteria).
+      return { record, strategy, analysis, rating: rateAgainstGoals(analysis, resolveOfferGoals(record.offerGoals, criteria)).rating };
+    }
+    const saved = resolveStrategyInputs(record.strategyInputs, String(criteria.minDscr));
+    const engine = toEngineInputs(saved);
+    const brrrr = strategy === "BRRRR" ? analyzeBrrrr(inputs, engine) : undefined;
+    const flip = strategy === "FLIP" ? analyzeFlip(inputs, engine) : undefined;
+    const checks = strategyChecks(strategy, saved.goals, { brrrr, flip }, inputs);
+    return { record, strategy, analysis: brrrr?.rental ?? analyzeDeal(inputs), rating: rateStrategy(strategy, checks, { brrrr, flip }), brrrr, flip };
   });
 }
 

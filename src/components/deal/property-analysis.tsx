@@ -5,12 +5,14 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
-import { saveOfferGoals } from "@/app/actions/properties";
+import { saveOfferGoals, saveStrategyGoals } from "@/app/actions/properties";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { analyzeDeal, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
+import { analyzeBrrrr, analyzeDeal, analyzeFlip, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
 import { recordToInputs, trimZeros, type PropertyRecord } from "@/lib/property-mapping";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { MarketDataSummary } from "./market-data";
+import { BrrrrMetrics, BrrrrSteps, FlipMetrics, FlipStatement, StrategyOfferTools, rateStrategy, strategyChecks } from "./strategy-panels";
+import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type StrategyValue } from "@/lib/strategy";
 import { DealTools } from "./deal-tools";
 import { REHAB_SCOPES, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import {
@@ -47,6 +49,19 @@ export function PropertyAnalysis({
   criteria: InvestmentCriteria;
   /** Report layout: Acquisition & financing → Cash flow statement → Year-1 return (also the printed order). */
   acquisitionFirst?: boolean;
+}) {
+  if (record.strategy && record.strategy !== "BUY_HOLD") return <StrategyPropertyAnalysis record={record} criteria={criteria} />;
+  return <BuyHoldAnalysis record={record} criteria={criteria} acquisitionFirst={acquisitionFirst} />;
+}
+
+function BuyHoldAnalysis({
+  record,
+  criteria,
+  acquisitionFirst,
+}: {
+  record: PropertyRecord;
+  criteria: InvestmentCriteria;
+  acquisitionFirst: boolean;
 }) {
   const a = useMemo(() => analyzeDeal(recordToInputs(record)), [record]);
   const savedGoals = useMemo(() => resolveOfferGoals(record.offerGoals, criteria), [record.offerGoals, criteria]);
@@ -244,5 +259,113 @@ function OfferTools({
         ) : undefined
       }
     />
+  );
+}
+
+/** BRRRR / Flip deal page and report. */
+function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord; criteria: InvestmentCriteria }) {
+  const strategy = record.strategy as Exclude<StrategyValue, "BUY_HOLD">;
+  const inputs = useMemo(() => recordToInputs(record), [record]);
+  const saved = useMemo(() => resolveStrategyInputs(record.strategyInputs, String(criteria.minDscr)), [record.strategyInputs, criteria.minDscr]);
+  const engine = useMemo(() => toEngineInputs(saved), [saved]);
+  const [goals, setGoals] = useState<StrategyGoals>(saved.goals);
+  const [pending, start] = useTransition();
+  const brrrr = useMemo(() => (strategy === "BRRRR" ? analyzeBrrrr(inputs, engine) : undefined), [strategy, inputs, engine]);
+  const flip = useMemo(() => (strategy === "FLIP" ? analyzeFlip(inputs, engine) : undefined), [strategy, inputs, engine]);
+  const checks = useMemo(() => strategyChecks(strategy, goals, { brrrr, flip }, inputs), [strategy, goals, brrrr, flip, inputs]);
+  const rating = rateStrategy(strategy, checks, { brrrr, flip });
+  const base = useMemo(() => analyzeDeal(inputs), [inputs]); // for the ARV / 70% rule breakdown
+  const hold = (brrrr ?? flip)!.hold;
+  const dirty = JSON.stringify(goals) !== JSON.stringify(saved.goals);
+  const acqLabel = { hardMoney: "Hard money", conventional: "Conventional mortgage", cash: "All cash" }[saved.acquisition.type];
+
+  return (
+    <div className="space-y-5">
+      <CriteriaPanel rating={rating} checks={checks} footer="Goals for this deal are set under Max offer price below." />
+      {brrrr ? <BrrrrMetrics b={brrrr} columns={3} /> : <FlipMetrics f={flip!} columns={3} />}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title={brrrr ? "BRRRR step by step" : "Profit & loss"} className="print:break-inside-avoid">
+          {brrrr ? <BrrrrSteps b={brrrr} input={inputs} /> : <FlipStatement f={flip!} input={inputs} />}
+        </Panel>
+        {brrrr ? (
+          <Panel title="Rental after refinance" description="Year 1 with the new loan" className="print:break-inside-avoid">
+            <CashFlowStatement a={brrrr.rental} />
+          </Panel>
+        ) : (
+          <Panel title="Financing & holding" className="print:break-inside-avoid">
+            <dl className="divide-y text-sm">
+              {[
+                ["Purchase loan", `${acqLabel}${hold.loanAmount.gt(0) ? ` · ${formatCurrency(hold.loanAmount)}` : ""}`],
+                ["Interest while holding", formatCurrency(hold.interestPaid)],
+                ["Points", formatCurrency(hold.points)],
+                ["Hold time", `${hold.months} months`],
+                ["Carrying costs", `${formatCurrency(hold.monthlyHoldingCost)}/mo · ${formatCurrency(hold.holdingCosts)} total`],
+                ["Selling costs", `${trimZeros(saved.flip.sellingCostPct)}% · ${formatCurrency(flip!.sellingCosts)}`],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 py-2">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="num text-right">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <ArvBreakdown a={base} className="mt-3" />
+          </Panel>
+        )}
+      </div>
+
+      {brrrr && (
+        <Panel title="After-repair value" className="print:break-inside-avoid">
+          <ArvBreakdown a={base} />
+          {!base.afterRepairValue && <p className="text-sm text-muted-foreground">No ARV entered — the refinance uses purchase price + rehab.</p>}
+        </Panel>
+      )}
+
+      <StrategyOfferTools
+        strategy={strategy}
+        inputs={inputs}
+        s={engine}
+        goals={goals}
+        onGoalsChange={setGoals}
+        action={
+          dirty ? (
+            <Button
+              size="sm"
+              className="no-print"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await saveStrategyGoals(record.id, goals);
+                  if (res.ok) toast.success("Goals saved for this deal");
+                  else toast.error("Couldn't save goals");
+                })
+              }
+            >
+              {pending ? <Loader2 className="animate-spin" /> : <Save />} Save goals
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
+
+      {record.marketData && (
+        <Panel title="Market data" description="Automated estimates captured when this deal was analyzed" className="print:break-inside-avoid">
+          <MarketDataSummary data={record.marketData} />
+        </Panel>
+      )}
+
+      {brrrr && (
+        <Panel
+          title={`${brrrr.rental.sale.holdingPeriodYears}-year projection after refinance`}
+          description="Rent, expenses and value compound from the ARV; returns are measured on the cash left in the deal."
+          className="print:break-before-page"
+        >
+          <ProjectionPanel a={brrrr.rental} />
+        </Panel>
+      )}
+
+      <Disclaimer />
+    </div>
   );
 }

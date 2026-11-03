@@ -47,7 +47,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           <div className="flex items-start gap-5">
           <PropertyPhoto location={recordPhotoLocation(p)} className="hidden w-48 shrink-0 sm:block" width={384} height={240} />
           <div className="space-y-2">
-            <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Rental Property Investment Analysis</p>
+            <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+              {p.strategy === "FLIP" ? "Fix & Flip Analysis" : p.strategy === "BRRRR" ? "BRRRR Investment Analysis" : "Rental Property Investment Analysis"}
+            </p>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-semibold tracking-tight">{p.name}</h1>
               {p.isSample && <SampleBadge />}

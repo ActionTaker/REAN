@@ -78,6 +78,12 @@ enum PropertyType {
   MULTIFAMILY
 }
 
+enum InvestmentStrategy {
+  BUY_HOLD
+  BRRRR
+  FLIP
+}
+
 enum DealStatus {
   ANALYZING
   OFFER_MADE
@@ -92,6 +98,9 @@ model Property {
   /// Sample properties are seeded for demonstration and are always labelled in the UI.
   isSample  Boolean  @default(false)
   status    DealStatus @default(ANALYZING)
+  strategy  InvestmentStrategy @default(BUY_HOLD)
+  /// BRRRR / Flip inputs and goals (hold months, acquisition loan, refinance, sale) — see src/lib/strategy.ts.
+  strategyInputs Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -1,4 +1,5 @@
-import { Prisma, type DealStatus, type PropertyType } from "@prisma/client";
+import { Prisma, type DealStatus, type InvestmentStrategy, type PropertyType } from "@prisma/client";
+import type { SavedStrategyInputs, StrategyValue } from "@/lib/strategy";
 import type { DealInputs } from "@/lib/finance";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import type { RehabPlan } from "@/lib/estimates/rehab";
@@ -34,6 +35,8 @@ export interface PropertyRecord {
   offerGoals: OfferGoals | null;
   arvAnalysis: ArvAnalysis | null;
   rentAnalysis: ArvAnalysis | null;
+  strategy: StrategyValue;
+  strategyInputs: SavedStrategyInputs | null;
   isCashPurchase: boolean;
   downPaymentPercent: string;
   interestRate: string;
@@ -132,6 +135,8 @@ export function recordToFormValues(r: PropertyRecord): DealFormValues {
     offerGoals: r.offerGoals,
     arvAnalysis: r.arvAnalysis,
     rentAnalysis: r.rentAnalysis,
+    strategy: r.strategy,
+    strategyInputs: r.strategyInputs,
     isCashPurchase: r.isCashPurchase,
     loanTermYears: str(r.loanTermYears),
     holdingPeriodYears: str(r.holdingPeriodYears),
@@ -190,6 +195,8 @@ export function formOutputToData(o: DealFormOutput) {
     offerGoals: o.offerGoals ? (o.offerGoals as Prisma.InputJsonValue) : Prisma.DbNull,
     arvAnalysis: o.arvAnalysis ? (o.arvAnalysis as Prisma.InputJsonValue) : Prisma.DbNull,
     rentAnalysis: o.rentAnalysis ? (o.rentAnalysis as Prisma.InputJsonValue) : Prisma.DbNull,
+    strategy: (o.strategy ?? "BUY_HOLD") as InvestmentStrategy,
+    strategyInputs: o.strategyInputs ? (o.strategyInputs as Prisma.InputJsonValue) : Prisma.DbNull,
     isCashPurchase: o.isCashPurchase,
     loanTermYears: parseInt(o.loanTermYears, 10),
     holdingPeriodYears: parseInt(o.holdingPeriodYears, 10),

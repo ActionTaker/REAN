@@ -80,6 +80,21 @@ export const arvAnalysisSchema = z.object({
   method: z.enum(["recommended", "adjustedAverage", "conservative", "ppsf", "avm", "manual"]).nullable(),
 });
 
+const num = z.string().trim().max(20).regex(/^-?\d*\.?\d*$/, "Enter a number");
+const g = z.object({ enabled: z.boolean(), target: num });
+/** BRRRR / Flip inputs (see src/lib/strategy.ts). Lenient strings; the engine treats blanks as 0. */
+export const strategyInputsSchema = z.object({
+  holdMonths: num,
+  holdingUtilitiesMonthly: num,
+  acquisition: z.object({ type: z.enum(["cash", "hardMoney", "conventional"]), loanToCostPct: num, rehabFinancedPct: num, rate: num, pointsPct: num }),
+  refi: z.object({ ltvPct: num, rate: num, termYears: num, closingPct: num }),
+  flip: z.object({ salePrice: z.string().trim().max(20).regex(/^[\d,$.\s]*$/, "Enter a number"), sellingCostPct: num }),
+  goals: z.object({
+    brrrr: z.object({ cashLeft: g, cashFlow: g, dscr: g, seventy: z.object({ enabled: z.boolean() }) }),
+    flip: z.object({ profit: g, roi: g, seventy: z.object({ enabled: z.boolean() }) }),
+  }),
+});
+
 export const dealSchema = z
   .object({
     name: z.string().trim().min(1, "Give this deal a name").max(120),
@@ -103,6 +118,8 @@ export const dealSchema = z
     offerGoals: offerGoalsSchema.nullable().optional().default(null),
     arvAnalysis: arvAnalysisSchema.nullable().optional().default(null),
     rentAnalysis: arvAnalysisSchema.nullable().optional().default(null),
+    strategy: z.enum(["BUY_HOLD", "BRRRR", "FLIP"]).optional().default("BUY_HOLD"),
+    strategyInputs: strategyInputsSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),
