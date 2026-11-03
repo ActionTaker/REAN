@@ -1,29 +1,59 @@
 "use client";
 
-import { AlertTriangle, ChevronRight, Database } from "lucide-react";
+import { AlertTriangle, ChevronRight, Database, ListChecks } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { InfoTip } from "@/components/common/info-tip";
 import { METRICS, dec, formatCurrency } from "@/lib/finance";
 import { propertyTypeLabel } from "@/lib/constants";
 import type { Comparable, PropertyLookup } from "@/lib/property-data/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { PropertyPhoto } from "./property-photo";
 
 const money = (s: string | null | undefined) => (s ? formatCurrency(dec(s)) : "—");
 
 function Tile({ label, value, sub, children, info }: { label: string; value: string; sub?: React.ReactNode; children?: React.ReactNode; info?: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-background p-3">
+    <div className="flex flex-col rounded-lg border bg-background p-3">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{label}{info}</div>
       <div className="mt-1 text-xl font-semibold tracking-tight">{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{sub}</div>}
+      {sub && <div className="mt-0.5 flex-1 text-[11px] leading-snug text-muted-foreground">{sub}</div>}
       {children}
     </div>
   );
 }
 
 /** Estimates, property facts and comps from an address lookup. Used live in the analyzer and as a stored snapshot. */
-export function MarketDataSummary({ data, compact }: { data: PropertyLookup; compact?: boolean }) {
+/** Big, obvious entry point into the Comps & ARV / Comps & Rent panels. */
+function CompsButton({ count, kind, onClick }: { count: number; kind: "sale" | "rent"; onClick: () => void }) {
+  return (
+    <div className="mt-3 space-y-1">
+      <Button type="button" onClick={onClick} className="w-full justify-between" size="lg">
+        <span className="flex min-w-0 items-center gap-2">
+          <ListChecks />
+          <span className="truncate">{kind === "sale" ? "Review comps & ARV" : "Review rent comps"}</span>
+        </span>
+        <ChevronRight />
+      </Button>
+      <p className="text-center text-[11px] text-muted-foreground">
+        {count} {kind === "sale" ? "comparable sales" : "rental comps"} · pick, adjust, apply
+      </p>
+    </div>
+  );
+}
+
+export function MarketDataSummary({
+  data,
+  compact,
+  onOpenComps,
+}: {
+  data: PropertyLookup;
+  compact?: boolean;
+  /** When given, the ARV and rent tiles get a button that opens the matching comps panel. */
+  onOpenComps?: (mode: "sale" | "rent") => void;
+}) {
+  const saleComps = data.value?.comparables.length ?? 0;
+  const rentComps = data.rent?.comparables.length ?? 0;
   const f = data.facts;
   const facts = [
     f.propertyType ? propertyTypeLabel(f.propertyType) : f.providerPropertyType,
@@ -57,7 +87,9 @@ export function MarketDataSummary({ data, compact }: { data: PropertyLookup; com
           value={money(data.value?.estimate)}
           sub={data.value?.low && data.value.high ? `Range ${money(data.value.low)} – ${money(data.value.high)}` : "No estimate"}
         />
-        <Tile label="ARV estimate" value={money(data.arv?.estimate)} sub={data.arv?.method ?? "Needs a value estimate"} info={<InfoTip metric={METRICS.afterRepairValue} />} />
+        <Tile label="ARV estimate" value={money(data.arv?.estimate)} sub={data.arv?.method ?? "Needs a value estimate"} info={<InfoTip metric={METRICS.afterRepairValue} />}>
+          {onOpenComps && saleComps > 0 && <CompsButton kind="sale" count={saleComps} onClick={() => onOpenComps("sale")} />}
+        </Tile>
         <Tile
           label={data.rent && data.rent.units > 1 ? `Rent (${data.rent.units} units)` : "Market rent"}
           value={
@@ -70,7 +102,9 @@ export function MarketDataSummary({ data, compact }: { data: PropertyLookup; com
               ? `${data.rent.compsPerUnit ? `From adjusted rental comps${data.rent.units > 1 ? ` (${money(data.rent.compsPerUnit)}/unit)` : ""} · RentCast estimate ${money(data.rent.perUnit)}` : `RentCast estimate`} · range ${money(data.rent.low)} – ${money(data.rent.high)}`
               : "No estimate"
           }
-        />
+        >
+          {onOpenComps && rentComps > 0 && <CompsButton kind="rent" count={rentComps} onClick={() => onOpenComps("rent")} />}
+        </Tile>
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">

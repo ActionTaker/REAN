@@ -74,21 +74,11 @@ export function AddressLookup({
         {error && <p className="text-sm text-destructive">{error}</p>}
         {data && (
           <>
-            <MarketDataSummary data={data} />
+            <MarketDataSummary data={data} onOpenComps={onOpenComps} />
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" onClick={() => onApply(data, lookedUp)}>
                 Apply to this deal
               </Button>
-              {onOpenComps && (data.value?.comparables.length ?? 0) > 0 && (
-                <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("sale")}>
-                  Review comps & ARV
-                </Button>
-              )}
-              {onOpenComps && (data.rent?.comparables.length ?? 0) > 0 && (
-                <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("rent")}>
-                  Review rent comps
-                </Button>
-              )}
               <Button type="button" size="sm" variant="ghost" onClick={() => run(true)} disabled={pending}>
                 <RefreshCw /> Refresh data
               </Button>

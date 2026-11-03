@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Save } from "lucide-react";
+import { ListChecks, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -331,9 +331,9 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               prefix: "$",
               hint:
                 (marketData?.value?.comparables.length ?? 0) > 0 ? (
-                  <button type="button" onClick={() => setCompsOpen("sale")} className="font-medium text-foreground underline underline-offset-2">
-                    Review comps & ARV
-                  </button>
+                  <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("sale")}>
+                    <ListChecks /> Review comps & ARV
+                  </Button>
                 ) : strategy !== "BUY_HOLD" && !analysis.afterRepairValue ? (
                   <span className="text-caution">Needed for {strategy === "BRRRR" ? "the refinance" : "the sale"}</span>
                 ) : analysis.equityCreated ? (
@@ -387,9 +387,9 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
               prefix: "$",
               hint:
                 (marketData?.rent?.comparables.length ?? 0) > 0 ? (
-                  <button type="button" onClick={() => setCompsOpen("rent")} className="font-medium text-foreground underline underline-offset-2">
-                    Review rent comps
-                  </button>
+                  <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("rent")}>
+                    <ListChecks /> Review rent comps
+                  </Button>
                 ) : undefined,
             })}
             {num("otherMonthlyIncome", "Other monthly income", { prefix: "$", hint: "Laundry, parking, storage, pet fees" })}
