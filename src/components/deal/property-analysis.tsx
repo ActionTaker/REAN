@@ -106,6 +106,7 @@ function BuyHoldAnalysis({
       <CriteriaPanel
         rating={rating}
         checks={checks}
+        stacked
         cashFlowNote={!cashFlowRequired(goals) && a.monthlyCashFlow.isNegative()}
         footer="Goals for this deal are set under Max offer price below."
       />
@@ -375,7 +376,7 @@ function StrategyPropertyAnalysis({ record, criteria, showNav }: { record: Prope
     <div className="space-y-5">
       {showNav && <SectionNav items={nav} />}
       <div id="overview" className="scroll-mt-28" />
-      <CriteriaPanel rating={rating} checks={checks} footer="Goals for this deal are set under Max offer price below." />
+      <CriteriaPanel rating={rating} checks={checks} stacked footer="Goals for this deal are set under Max offer price below." />
       {brrrr ? <BrrrrMetrics b={brrrr} columns={3} /> : <FlipMetrics f={flip!} columns={3} />}
 
       <div className="grid gap-5 lg:grid-cols-2">
