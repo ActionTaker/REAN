@@ -194,6 +194,16 @@ model UserSettings {
   defaultSellingCostPercent Decimal @default(6) @db.Decimal(9, 4)
   defaultHoldingPeriodYears Int     @default(30)
 
+  // Strategy defaults for new deals (BRRRR / Flip)
+  defaultStrategy           InvestmentStrategy @default(BUY_HOLD)
+  defaultHoldMonths         Int     @default(6)
+  defaultHardMoneyLtcPct    Decimal @default(90) @db.Decimal(9, 4)
+  defaultHardMoneyRate      Decimal @default(11) @db.Decimal(9, 4)
+  defaultHardMoneyPointsPct Decimal @default(2) @db.Decimal(9, 4)
+  defaultRefiLtvPct         Decimal @default(75) @db.Decimal(9, 4)
+  defaultRefiRate           Decimal @default(7.25) @db.Decimal(9, 4)
+  defaultFlipSellingCostPct Decimal @default(8) @db.Decimal(9, 4)
+
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

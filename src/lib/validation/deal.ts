@@ -200,6 +200,14 @@ export const settingsSchema = z.object({
   defaultExpenseGrowthRate: decimalField("Expense growth", { min: -20, max: 30, scale: 4 }),
   defaultSellingCostPercent: percent("Selling costs", 25),
   defaultHoldingPeriodYears: intField("Holding period", 1, 40),
+  defaultStrategy: z.enum(["BUY_HOLD", "BRRRR", "FLIP"]).default("BUY_HOLD"),
+  defaultHoldMonths: intField("Rehab & hold time", 0, 60),
+  defaultHardMoneyLtcPct: percent("Hard money loan-to-cost"),
+  defaultHardMoneyRate: percent("Hard money rate", 30),
+  defaultHardMoneyPointsPct: percent("Points", 10),
+  defaultRefiLtvPct: percent("Refinance LTV"),
+  defaultRefiRate: percent("Refinance rate", 30),
+  defaultFlipSellingCostPct: percent("Selling costs", 25),
 });
 
 export type SettingsFormValues = z.input<typeof settingsSchema>;

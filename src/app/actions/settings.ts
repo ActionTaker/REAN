@@ -14,11 +14,12 @@ export async function saveSettings(values: SettingsFormValues): Promise<SaveSett
   if (!parsed.success) {
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  const { name, defaultLoanTermYears, defaultHoldingPeriodYears, ...decimals } = parsed.data;
+  const { name, defaultLoanTermYears, defaultHoldingPeriodYears, defaultHoldMonths, ...decimals } = parsed.data;
   const data = {
     ...decimals,
     defaultLoanTermYears: parseInt(defaultLoanTermYears, 10),
     defaultHoldingPeriodYears: parseInt(defaultHoldingPeriodYears, 10),
+    defaultHoldMonths: parseInt(defaultHoldMonths, 10),
   };
   await prisma.$transaction([
     prisma.user.update({ where: { id: user.id }, data: { name: name || null } }),

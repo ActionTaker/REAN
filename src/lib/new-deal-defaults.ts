@@ -1,5 +1,18 @@
 import type { SettingsRecord } from "@/lib/data/settings";
 import type { DealFormValues } from "@/lib/validation/deal";
+import { defaultStrategyInputs, type SavedStrategyInputs } from "@/lib/strategy";
+
+/** BRRRR / Flip inputs for a new deal, from the user's Settings. */
+export function strategyDefaultsFrom(s: SettingsRecord): SavedStrategyInputs {
+  const d = defaultStrategyInputs(s.minDscr);
+  return {
+    ...d,
+    holdMonths: s.defaultHoldMonths,
+    acquisition: { ...d.acquisition, loanToCostPct: s.defaultHardMoneyLtcPct, rate: s.defaultHardMoneyRate, pointsPct: s.defaultHardMoneyPointsPct },
+    refi: { ...d.refi, ltvPct: s.defaultRefiLtvPct, rate: s.defaultRefiRate },
+    flip: { ...d.flip, sellingCostPct: s.defaultFlipSellingCostPct },
+  };
+}
 
 /** A blank deal pre-filled with the user's default assumptions from Settings. */
 export function newDealDefaults(s: SettingsRecord): DealFormValues {
@@ -25,8 +38,8 @@ export function newDealDefaults(s: SettingsRecord): DealFormValues {
     offerGoals: null,
     arvAnalysis: null,
     rentAnalysis: null,
-    strategy: "BUY_HOLD",
-    strategyInputs: null,
+    strategy: s.defaultStrategy ?? "BUY_HOLD",
+    strategyInputs: strategyDefaultsFrom(s) as never,
     aduInputs: null,
     isCashPurchase: false,
     downPaymentPercent: s.defaultDownPaymentPercent,

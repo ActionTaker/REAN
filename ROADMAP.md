@@ -9,7 +9,7 @@ Working list for continuous development. Each item ships as its own commit with 
 - [x] Mobile pass (no horizontal scroll on any page; compact strategy picker; two short fields per row)
 - [x] Zero console errors across all pages (fixed settings hydration mismatch)
 - [x] BRRRR/Flip money figures in compare and dashboard use real purchase financing
-- [ ] Settings: default strategy and BRRRR/Flip defaults (hard money, refinance, selling costs)
+- [x] Settings: default strategy and BRRRR/Flip defaults (hard money, refinance, selling costs)
 - [x] Strategy filter on My Properties (+ADU badge)
 
 ## Next
