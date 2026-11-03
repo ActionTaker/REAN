@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ListChecks, Loader2, Save } from "lucide-react";
+import { Info, ListChecks, Loader2, Save } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
   }, [strategy, holdChecks, holdRating, sSaved.goals, brrrr, flip, liveInputs]);
   const isCash = !!values.isCashPurchase;
   const [lookupAddress, setLookupAddress] = useState<string | null>(null);
+  const [showLongTerm, setShowLongTerm] = useState(false);
 
   // ── Comps & ARV panel ──
   const [marketData, setMarketData] = useState<PropertyLookup | null>(initialMarketData);
@@ -449,7 +451,20 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         )}
 
         {strategy !== "FLIP" && (
-        <Section title="Long-term assumptions" description="Used for the multi-year projection, sale and IRR. These are assumptions, not forecasts.">
+        <Section
+          title="Long-term assumptions"
+          description={
+            showLongTerm
+              ? "Used for the multi-year projection, sale and IRR. These are assumptions, not forecasts."
+              : `Appreciation ${values.appreciationRate || 0}% · rent growth ${values.rentGrowthRate || 0}% · expense growth ${values.expenseGrowthRate || 0}% · selling ${values.sellingCostPercent || 0}% · ${values.holdingPeriodYears || 0}-year hold`
+          }
+          action={
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowLongTerm((v) => !v)} aria-expanded={showLongTerm}>
+              {showLongTerm ? "Done" : "Edit"}
+            </Button>
+          }
+        >
+          {showLongTerm && (
           <div className="grid gap-4 sm:grid-cols-5">
             {num("appreciationRate", "Appreciation", { suffix: "%/yr" })}
             {num("rentGrowthRate", "Rent growth", { suffix: "%/yr" })}
@@ -457,6 +472,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             {num("sellingCostPercent", "Selling costs", { suffix: "%" })}
             {num("holdingPeriodYears", "Hold period", { suffix: "yrs" })}
           </div>
+          )}
         </Section>
         )}
 
@@ -676,19 +692,34 @@ function useAutoEstimate(
   };
 }
 
+function Why({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="inline-flex align-middle text-muted-foreground/70 hover:text-foreground" aria-label="How this estimate is calculated">
+          <Info className="size-3" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-left leading-snug">{text}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function EstimateHint({ est, auto, fallback }: { est: CostEstimate | null; auto: AutoState; fallback: string }) {
   if (!est) return <>{fallback}</>;
   if (auto.isAuto) {
     return (
-      <span title={est.basis}>
-        <span className="mr-1 rounded bg-series-1/10 px-1 py-px text-[10px] font-medium text-series-1">Estimate</span>
-        {est.basis}
+      <span className="inline-flex items-center gap-1">
+        <span className="rounded bg-series-1/10 px-1 py-px text-[10px] font-medium text-series-1">Estimate</span>
+        state average
+        <Why text={est.basis} />
       </span>
     );
   }
   return (
-    <span>
-      Estimate {formatCurrency(est.amount)} ·{" "}
+    <span className="inline-flex items-center gap-1">
+      Estimate {formatCurrency(est.amount)}
+      <Why text={est.basis} />·
       <button type="button" onClick={auto.apply} className="font-medium text-foreground underline underline-offset-2">
         Use
       </button>
@@ -714,24 +745,30 @@ function TaxHint({
   onUseRecord: (v: string) => void;
 }) {
   const usingRecord = record !== null && current.trim() === record.amount;
+  const recordNote = "The current owner's bill from county records. Many states reassess when a property sells, so yours may differ.";
   return (
     <div className="space-y-0.5">
-      <EstimateHint est={est} auto={auto} fallback="Enter price & state to estimate" />
-      {record && (
-        <div>
-          {usingRecord ? (
-            <span>
-              <span className="mr-1 rounded bg-muted px-1 py-px text-[10px] font-medium text-foreground">County record</span>
-              {record.year} bill — the seller&apos;s taxes; may change when you buy
-            </span>
-          ) : (
-            <span>
-              County record {formatCurrency(dec(record.amount))} ({record.year}) ·{" "}
-              <button type="button" onClick={() => onUseRecord(record.amount)} className="font-medium text-foreground underline underline-offset-2">
-                Use
-              </button>
-            </span>
-          )}
+      {usingRecord ? (
+        <span className="inline-flex items-center gap-1">
+          <span className="rounded bg-muted px-1 py-px text-[10px] font-medium text-foreground">County {record.year}</span>
+          seller&apos;s bill
+          <Why text={recordNote} />
+        </span>
+      ) : (
+        <EstimateHint est={est} auto={auto} fallback="Enter price & state to estimate" />
+      )}
+      {usingRecord && est && (
+        <div className="inline-flex items-center gap-1">
+          Estimate at your price {formatCurrency(est.amount)}
+          <Why text={est.basis} />·
+          <button type="button" onClick={auto.apply} className="font-medium text-foreground underline underline-offset-2">Use</button>
+        </div>
+      )}
+      {record && !usingRecord && (
+        <div className="inline-flex items-center gap-1">
+          County {record.year}: {formatCurrency(dec(record.amount))}
+          <Why text={recordNote} />·
+          <button type="button" onClick={() => onUseRecord(record.amount)} className="font-medium text-foreground underline underline-offset-2">Use</button>
         </div>
       )}
     </div>

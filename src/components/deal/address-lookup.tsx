@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ListChecks, Loader2, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { lookupPropertyData } from "@/app/actions/property-data";
@@ -29,12 +29,15 @@ export function AddressLookup({
   const [lookedUp, setLookedUp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // After "Apply", the card folds to one line so the form isn't pushed down by results already used.
+  const [collapsed, setCollapsed] = useState(false);
 
   const run = (refresh = false, target = address) =>
     start(async () => {
       setError(null);
       const res = await lookupPropertyData(target, refresh);
       if (res.ok) {
+        setCollapsed(false);
         setData(res.data);
         onLookup?.(res.data, target);
         setLookedUp(target);
@@ -43,6 +46,39 @@ export function AddressLookup({
         setError(res.error);
       }
     });
+
+  const apply = () => {
+    if (!data) return;
+    onApply(data, lookedUp);
+    setCollapsed(true);
+  };
+
+  if (data && collapsed) {
+    return (
+      <Card className="gap-0 border-series-1/30 py-3">
+        <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <CheckCircle2 className="size-4 shrink-0 text-positive" />
+          <div className="min-w-0 flex-1 text-sm">
+            <span className="font-medium">Filled from {data.address.formatted}</span>
+            <span className="text-muted-foreground"> · review every number before saving</span>
+          </div>
+          {onOpenComps && (data.value?.comparables.length ?? 0) > 0 && (
+            <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("sale")}>
+              <ListChecks /> Comps & ARV
+            </Button>
+          )}
+          {onOpenComps && (data.rent?.comparables.length ?? 0) > 0 && (
+            <Button type="button" size="sm" variant="outline" onClick={() => onOpenComps("rent")}>
+              <ListChecks /> Rent comps
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="ghost" onClick={() => setCollapsed(false)}>
+            <ChevronDown /> Show details
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="gap-4 overflow-visible border-series-1/30">
@@ -74,15 +110,18 @@ export function AddressLookup({
         {error && <p className="text-sm text-destructive">{error}</p>}
         {data && (
           <>
-            <MarketDataSummary data={data} onOpenComps={onOpenComps} />
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" onClick={() => onApply(data, lookedUp)}>
-                Apply to this deal
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-series-1/5 px-3 py-2">
+              <p className="flex-1 text-xs text-muted-foreground">
+                Fills property details, taxes, HOA, rent and ARV (and the price, if empty). You can change anything afterwards.
+              </p>
+              <Button type="button" variant="ghost" size="sm" onClick={() => run(true)} disabled={pending}>
+                <RefreshCw /> Refresh
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => run(true)} disabled={pending}>
-                <RefreshCw /> Refresh data
+              <Button type="button" onClick={apply}>
+                <CheckCircle2 /> Apply to this deal
               </Button>
             </div>
+            <MarketDataSummary data={data} onOpenComps={onOpenComps} />
           </>
         )}
       </CardContent>

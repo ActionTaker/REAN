@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <TooltipProvider delayDuration={150}>
             {children}
-            <Toaster position="bottom-right" />
+            <Toaster position="bottom-center" />
           </TooltipProvider>
         </ThemeProvider>
       </body>

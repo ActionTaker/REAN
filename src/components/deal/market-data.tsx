@@ -31,7 +31,7 @@ function CompsButton({ count, kind, onClick }: { count: number; kind: "sale" | "
       <Button type="button" onClick={onClick} className="w-full justify-between" size="lg">
         <span className="flex min-w-0 items-center gap-2">
           <ListChecks />
-          <span className="truncate">{kind === "sale" ? "Review comps & ARV" : "Review rent comps"}</span>
+          <span className="truncate">{kind === "sale" ? "Comps & ARV" : "Rent comps"}</span>
         </span>
         <ChevronRight />
       </Button>
