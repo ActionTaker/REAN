@@ -16,7 +16,7 @@ Working list for continuous development. Each item ships as its own commit with 
 - [x] Rent roll for 2+ unit properties (rent per unit; total feeds monthly rent)
 - [x] After-tax view: depreciation (27.5 yr) and interest deduction (Settings: tax rate, building share)
 - [x] "Analyze as BRRRR / Flip" — copies a saved deal under another strategy (actions menu)
-- [ ] Zillow values entered by hand (Zestimate / Rent Zestimate) with source label
+- [x] Outside estimates entered by hand (Zillow, Redfin, agent…) with source, average vs. your ARV/rent, "Use average"
 
 ## Later
 - [ ] Portfolio tracking for owned properties (actual vs projected)

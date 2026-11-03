@@ -48,6 +48,7 @@ export function newDealDefaults(s: SettingsRecord): DealFormValues {
     strategyInputs: strategyDefaultsFrom(s) as never,
     aduInputs: null,
     rentRoll: null,
+    otherEstimates: null,
     isCashPurchase: false,
     downPaymentPercent: s.defaultDownPaymentPercent,
     interestRate: s.defaultInterestRate,

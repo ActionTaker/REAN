@@ -16,6 +16,7 @@ import { resolveStrategyInputs, toEngineInputs, type StrategyGoals, type Strateg
 import { DealTools } from "./deal-tools";
 import { AduPanel } from "./adu-panels";
 import { AfterTaxSummary } from "./tax-panel";
+import { OtherEstimatesSummary } from "./other-estimates";
 import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
 import { runAdu } from "@/lib/adu";
 import type { DealAnalysis } from "@/lib/finance";
@@ -184,6 +185,12 @@ function BuyHoldAnalysis({
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
       <SavedAdu record={record} analysis={a} />
+
+      {record.otherEstimates && record.otherEstimates.length > 0 && (
+        <Panel title="Outside estimates" description="Entered by hand from Zillow, Redfin, agents and others" className="print:break-inside-avoid">
+          <OtherEstimatesSummary rows={record.otherEstimates} currentArv={record.afterRepairValue ?? ""} currentRent={record.monthlyRent} />
+        </Panel>
+      )}
 
       {record.marketData && (
         <Panel
@@ -385,6 +392,12 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
       {record.rehabPlan && <RehabBudget plan={record.rehabPlan} squareFeet={record.squareFeet} />}
 
       {brrrr && <SavedAdu record={record} analysis={brrrr.rental} />}
+
+      {record.otherEstimates && record.otherEstimates.length > 0 && (
+        <Panel title="Outside estimates" description="Entered by hand from Zillow, Redfin, agents and others" className="print:break-inside-avoid">
+          <OtherEstimatesSummary rows={record.otherEstimates} currentArv={record.afterRepairValue ?? ""} currentRent={record.monthlyRent} />
+        </Panel>
+      )}
 
       {record.marketData && (
         <Panel title="Market data" description="Automated estimates captured when this deal was analyzed" className="print:break-inside-avoid">

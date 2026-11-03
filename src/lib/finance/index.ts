@@ -13,3 +13,4 @@ export * from "./strategies";
 export * from "./strategy-tools";
 export * from "./adu";
 export * from "./tax";
+export * from "./estimate-compare";

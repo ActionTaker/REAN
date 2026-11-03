@@ -105,6 +105,8 @@ model Property {
   aduInputs Json?
   /// Rent per unit for 2+ unit properties; monthlyRent holds their total.
   rentRoll  Json?
+  /// Outside estimates the user entered by hand (Zillow, Redfin, agent…).
+  otherEstimates Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

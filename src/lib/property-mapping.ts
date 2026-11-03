@@ -2,6 +2,7 @@ import { Prisma, type DealStatus, type InvestmentStrategy, type PropertyType } f
 import type { SavedStrategyInputs, StrategyValue } from "@/lib/strategy";
 import type { SavedAduInputs } from "@/lib/adu";
 import type { RentRollRow } from "@/lib/rent-roll";
+import type { OtherEstimate } from "@/lib/other-estimates";
 import type { DealInputs } from "@/lib/finance";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import type { RehabPlan } from "@/lib/estimates/rehab";
@@ -41,6 +42,7 @@ export interface PropertyRecord {
   strategyInputs: SavedStrategyInputs | null;
   aduInputs: SavedAduInputs | null;
   rentRoll: RentRollRow[] | null;
+  otherEstimates: OtherEstimate[] | null;
   isCashPurchase: boolean;
   downPaymentPercent: string;
   interestRate: string;
@@ -143,6 +145,7 @@ export function recordToFormValues(r: PropertyRecord): DealFormValues {
     strategyInputs: r.strategyInputs,
     aduInputs: r.aduInputs,
     rentRoll: r.rentRoll,
+    otherEstimates: r.otherEstimates,
     isCashPurchase: r.isCashPurchase,
     loanTermYears: str(r.loanTermYears),
     holdingPeriodYears: str(r.holdingPeriodYears),
@@ -205,6 +208,7 @@ export function formOutputToData(o: DealFormOutput) {
     strategyInputs: o.strategyInputs ? (o.strategyInputs as Prisma.InputJsonValue) : Prisma.DbNull,
     aduInputs: o.aduInputs ? (o.aduInputs as Prisma.InputJsonValue) : Prisma.DbNull,
     rentRoll: o.rentRoll?.length ? (o.rentRoll as Prisma.InputJsonValue) : Prisma.DbNull,
+    otherEstimates: o.otherEstimates?.length ? (o.otherEstimates as Prisma.InputJsonValue) : Prisma.DbNull,
     isCashPurchase: o.isCashPurchase,
     loanTermYears: parseInt(o.loanTermYears, 10),
     holdingPeriodYears: parseInt(o.holdingPeriodYears, 10),

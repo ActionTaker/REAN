@@ -51,6 +51,8 @@ import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary
 import { NumberInput } from "./number-input";
 import { AfterTaxSummary } from "./tax-panel";
 import { RentRollEditor } from "./rent-roll";
+import { OtherEstimatesSection } from "./other-estimates";
+import type { OtherEstimate } from "@/lib/other-estimates";
 import { rentRollTotal, rollForUnits, seedRentRoll, type RentRollRow } from "@/lib/rent-roll";
 import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
 import { AddressLookup } from "./address-lookup";
@@ -551,6 +553,22 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             dealCapRate={rentalView.capRate}
           />
         )}
+
+        <OtherEstimatesSection
+          rows={(values.otherEstimates ?? []) as OtherEstimate[]}
+          onChange={(rows) => setValue("otherEstimates", (rows.length ? rows : null) as never, { shouldDirty: true })}
+          currentArv={String(values.afterRepairValue ?? "")}
+          currentRent={String(values.monthlyRent ?? "")}
+          onUseArv={(v) => {
+            setValue("afterRepairValue", v as never, { shouldDirty: true, shouldValidate: true });
+            toast.success(`ARV set to ${formatCurrency(dec(v))}`);
+          }}
+          onUseRent={(v) => {
+            setValue("rentRoll", null as never, { shouldDirty: true });
+            setValue("monthlyRent", v as never, { shouldDirty: true, shouldValidate: true });
+            toast.success(`Rent set to ${formatCurrency(dec(v))}/mo`);
+          }}
+        />
 
         {marketData && (
           <CompsArvSheet

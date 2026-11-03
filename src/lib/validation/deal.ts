@@ -113,6 +113,11 @@ export const rentRollSchema = z
   .array(z.object({ label: z.string().trim().max(40), beds: z.string().trim().max(5), baths: z.string().trim().max(5), rent: money0 }))
   .max(500);
 
+/** Outside estimates, entered by hand. */
+export const otherEstimatesSchema = z
+  .array(z.object({ source: z.string().trim().max(40), kind: z.enum(["arv", "rent"]), amount: money0, note: z.string().trim().max(200) }))
+  .max(30);
+
 export const dealSchema = z
   .object({
     name: z.string().trim().min(1, "Give this deal a name").max(120),
@@ -140,6 +145,7 @@ export const dealSchema = z
     strategyInputs: strategyInputsSchema.nullable().optional().default(null),
     aduInputs: aduInputsSchema.nullable().optional().default(null),
     rentRoll: rentRollSchema.nullable().optional().default(null),
+    otherEstimates: otherEstimatesSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),
