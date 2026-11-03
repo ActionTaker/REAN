@@ -25,6 +25,7 @@ import {
   formatRatio,
   D,
   type DealAnalysis,
+  type HoldPhase,
   type InvestmentCriteria,
   type MetricDefinition,
 } from "@/lib/finance";
@@ -37,6 +38,8 @@ interface Row {
   label: string;
   metric?: MetricDefinition;
   get: (a: DealAnalysis) => D | null;
+  /** BRRRR / Flip: read from the purchase-and-hold phase instead (hard money, cash, etc.). */
+  hold?: (h: HoldPhase) => D | null;
   format: (v: D | null) => string;
   /** Which direction is "better"; omit for neutral rows. */
   better?: "high" | "low";
@@ -53,9 +56,9 @@ const GROUPS: { title: string; view: "base" | "rental"; rows: Row[] }[] = [
       { label: "Purchase price", get: (a) => a.purchasePrice, format: money },
       { label: "After-repair value", metric: METRICS.afterRepairValue, get: (a) => a.afterRepairValue, format: money },
       { label: "Equity created", metric: METRICS.equityCreated, get: (a) => a.equityCreated, format: money, better: "high" },
-      { label: "Total cash invested", metric: METRICS.totalCashInvested, get: (a) => a.totalCashInvested, format: money, better: "low" },
-      { label: "Loan amount", get: (a) => a.loanAmount, format: money },
-      { label: "Mortgage P&I / mo", metric: METRICS.mortgagePayment, get: (a) => a.monthlyMortgagePayment, format: money },
+      { label: "Total cash invested", metric: METRICS.totalCashInvested, get: (a) => a.totalCashInvested, hold: (h) => h.totalCashIn, format: money, better: "low" },
+      { label: "Purchase loan", get: (a) => a.loanAmount, hold: (h) => h.loanAmount, format: money },
+      { label: "Loan payment / mo", metric: METRICS.mortgagePayment, get: (a) => a.monthlyMortgagePayment, hold: (h) => h.monthlyPayment, format: money },
       { label: "Price per unit", get: (a) => a.pricePerUnit, format: money, better: "low" },
     ],
   },
@@ -77,7 +80,7 @@ const GROUPS: { title: string; view: "base" | "rental"; rows: Row[] }[] = [
       { label: "Cap rate", metric: METRICS.capRate, get: (a) => a.capRate, format: pct, better: "high" },
       { label: "Cash-on-cash", metric: METRICS.cashOnCash, get: (a) => a.cashOnCash, format: pct, better: "high" },
       { label: "Year-1 total ROI", metric: METRICS.yearOneTotalROI, get: (a) => a.yearOneTotalROI, format: pct, better: "high" },
-      { label: "DSCR", metric: METRICS.dscr, get: (a) => a.dscr, format: (v) => (v ? formatRatio(v, 2, "×") : "n/a"), better: "high" },
+      { label: "DSCR", metric: METRICS.dscr, get: (a) => a.dscr, format: (v) => (v ? formatRatio(v, 2, "×") : "—"), better: "high" },
       { label: "1% rule", metric: METRICS.onePercentRule, get: (a) => a.onePercentRule, format: pct, better: "high" },
       { label: "Gross rent multiplier", metric: METRICS.grm, get: (a) => a.grossRentMultiplier, format: (v) => formatRatio(v, 2, "×"), better: "low" },
       { label: "Break-even occupancy", metric: METRICS.breakEvenOccupancy, get: (a) => a.breakEvenOccupancy, format: (v) => formatPercent(v, 1), better: "low" },
@@ -234,7 +237,14 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
               </TableHeader>
               <TableBody>
                 {GROUPS.map((g) => (
-                  <GroupRows key={g.title} title={g.title} rows={g.rows} values={(row) => analyses.map((x) => (g.view === "base" ? row.get(x.base) : x.a ? row.get(x.a) : null))} count={analyses.length} />
+                  <GroupRows key={g.title} title={g.title} rows={g.rows} values={(row) =>
+                      analyses.map((x) => {
+                        if (g.view !== "base") return x.a ? row.get(x.a) : null;
+                        // BRRRR / Flip are bought with their own financing (hard money, cash…), not the Buy & Hold loan.
+                        const h = x.x.brrrr?.hold ?? x.x.flip?.hold;
+                        return h && row.hold ? row.hold(h) : row.get(x.base);
+                      })
+                    } count={analyses.length} />
                 ))}
                 {hasStrategyDeals && (
                   <GroupRows title="BRRRR & Flip" rows={STRATEGY_ROWS} values={(row) => analyses.map(({ x }) => row.get(x))} count={analyses.length} />
