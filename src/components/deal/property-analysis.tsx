@@ -261,7 +261,7 @@ function FoldedFormulas() {
 function SavedAdu({ record, analysis }: { record: PropertyRecord; analysis: DealAnalysis }) {
   const r = useMemo(() => (record.aduInputs ? runAdu(record.aduInputs, recordToInputs(record), analysis, record.state) : null), [record, analysis]);
   if (!r || !record.aduInputs) return null;
-  return <AduPanel r={r} s={record.aduInputs} stateCode={record.state?.toUpperCase() ?? null} />;
+  return <AduPanel r={r} s={record.aduInputs} stateCode={record.state?.toUpperCase() ?? null} base={analysis} />;
 }
 
 function RehabBudget({ plan, squareFeet }: { plan: RehabPlan; squareFeet: number | null }) {

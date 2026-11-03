@@ -1,4 +1,4 @@
-import { ADU_TYPES, analyzeAdu, defaultAduCostPerSqft, type AduAnalysis, type AduInputs, type AduType } from "@/lib/finance/adu";
+import { ADU_INSURANCE_PCT, ADU_TYPES, analyzeAdu, defaultAduCostPerSqft, type AduAnalysis, type AduInputs, type AduType } from "@/lib/finance/adu";
 import { D, dec, pct } from "@/lib/finance/decimal";
 import type { DealAnalysis, DealInputs } from "@/lib/finance/types";
 import { NATIONAL_PROPERTY_TAX_PCT, PROPERTY_TAX_PCT } from "@/lib/estimates/state-data";
@@ -56,10 +56,26 @@ export function aduCapRate(s: SavedAduInputs, dealCapRate: D | null): { rate: D;
 }
 
 /** Run the ADU scenario against a deal (Buy & Hold analysis, or a BRRRR's post-refi rental). */
-export function runAdu(s: SavedAduInputs, deal: DealInputs, analysis: DealAnalysis, state: string | null | undefined): AduAnalysis & { capRateUsed: D; capRateSource: "custom" | "deal" | "default" } {
+/** The rates behind each line of the ADU math, so the UI can show its work. */
+export interface AduBasis {
+  vacancyPct: string;
+  maintenancePct: string;
+  capexPct: string;
+  managementPct: string;
+  taxPct: string;
+  /** "CA", or null for the U.S. average. */
+  taxState: string | null;
+  insurancePct: string;
+  loan: { amount: D; rate: string; termYears: number } | null;
+}
+
+export type RunAduResult = AduAnalysis & { capRateUsed: D; capRateSource: "custom" | "deal" | "default"; basis: AduBasis };
+
+export function runAdu(s: SavedAduInputs, deal: DealInputs, analysis: DealAnalysis, state: string | null | undefined): RunAduResult {
   const cap = aduCapRate(s, analysis.capRate);
   const code = state?.toUpperCase() ?? "";
-  const r = analyzeAdu(toEngineAdu(s), {
+  const engine = toEngineAdu(s);
+  const r = analyzeAdu(engine, {
     vacancyRate: deal.vacancyRate,
     maintenancePercent: deal.maintenancePercent,
     capexPercent: deal.capexPercent,
@@ -68,5 +84,20 @@ export function runAdu(s: SavedAduInputs, deal: DealInputs, analysis: DealAnalys
     propertyTaxPct: PROPERTY_TAX_PCT[code] ?? NATIONAL_PROPERTY_TAX_PCT,
     baseMonthlyCashFlow: analysis.monthlyCashFlow,
   });
-  return { ...r, capRateUsed: cap.rate, capRateSource: cap.source };
+  const str = (v: unknown) => String(v ?? "0");
+  return {
+    ...r,
+    capRateUsed: cap.rate,
+    capRateSource: cap.source,
+    basis: {
+      vacancyPct: str(deal.vacancyRate),
+      maintenancePct: str(deal.maintenancePercent),
+      capexPct: str(deal.capexPercent),
+      managementPct: str(deal.managementPercent),
+      taxPct: PROPERTY_TAX_PCT[code] ?? NATIONAL_PROPERTY_TAX_PCT,
+      taxState: PROPERTY_TAX_PCT[code] ? code : null,
+      insurancePct: ADU_INSURANCE_PCT,
+      loan: r.loanAmount.gt(0) ? { amount: r.loanAmount, rate: str(engine.financing.rate), termYears: engine.financing.termYears } : null,
+    },
+  };
 }

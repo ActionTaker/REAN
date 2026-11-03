@@ -1,5 +1,6 @@
 import { D, ONE, TWELVE, ZERO, dec, pct, safeDiv, type DecimalLike } from "./decimal";
 import { monthlyPayment } from "./mortgage";
+import type { DealAnalysis } from "./types";
 
 /**
  * ADU (accessory dwelling unit) add-on: what it costs to build, what it rents
@@ -58,7 +59,13 @@ export interface AduAnalysis {
   // Income & expenses (monthly)
   grossRent: D;
   vacancyLoss: D;
+  /** Repairs, CapEx reserve and management, itemized (they sum to operatingExpenses). */
+  maintenance: D;
+  capex: D;
+  management: D;
   operatingExpenses: D;
+  /** NOI before the added insurance and property tax. */
+  preTaxNoi: D;
   addedPropertyTax: D;
   addedInsurance: D;
   monthlyNOI: D;
@@ -95,9 +102,10 @@ export function analyzeAdu(a: AduInputs, ctx: AduContext): AduAnalysis {
   const grossRent = dec(a.monthlyRent);
   const vacancyLoss = grossRent.times(pct(ctx.vacancyRate));
   const collected = grossRent.minus(vacancyLoss);
-  const operatingExpenses = grossRent
-    .times(pct(ctx.maintenancePercent).plus(pct(ctx.capexPercent)))
-    .plus(collected.times(pct(ctx.managementPercent)));
+  const maintenance = grossRent.times(pct(ctx.maintenancePercent));
+  const capex = grossRent.times(pct(ctx.capexPercent));
+  const management = collected.times(pct(ctx.managementPercent));
+  const operatingExpenses = maintenance.plus(capex).plus(management);
 
   // Value first (income approach), then the property tax that value brings.
   // NOI before the added tax/insurance is what the market capitalizes; tax/insurance are then charged on it.
@@ -126,7 +134,11 @@ export function analyzeAdu(a: AduInputs, ctx: AduContext): AduAnalysis {
     monthlyPayment: payment,
     grossRent,
     vacancyLoss,
+    maintenance,
+    capex,
+    management,
     operatingExpenses,
+    preTaxNoi,
     addedPropertyTax,
     addedInsurance,
     monthlyNOI,
@@ -152,4 +164,52 @@ export function suggestAduRent(mainRent: DecimalLike, mainSqft: number | null, a
 export function defaultAduCostPerSqft(type: AduType, costIndex: DecimalLike): D {
   const t = ADU_TYPES.find((x) => x.value === type) ?? ADU_TYPES[0];
   return dec(t.costPerSqft).times(dec(costIndex)).div(5).toDecimalPlaces(0).times(5);
+}
+
+/** One column of the without / ADU only / together comparison. */
+export interface AduScenarioColumn {
+  monthlyCashFlow: D;
+  annualNOI: D;
+  cashInvested: D;
+  /** Annual cash flow ÷ cash invested. */
+  cashOnCash: D | null;
+  /** Equity created (ARV − project cost for the house; value added − build cost for the ADU). Null when the house has no ARV. */
+  equityCreated: D | null;
+  /** NOI ÷ debt service, when there's debt. */
+  dscr: D | null;
+}
+
+/** The deal without the ADU, the ADU on its own, and both together — every figure summed in decimals. */
+export function compareWithAdu(base: DealAnalysis, adu: AduAnalysis): { without: AduScenarioColumn; aduOnly: AduScenarioColumn; together: AduScenarioColumn } {
+  const aduDebt = adu.monthlyPayment.times(TWELVE);
+  const without: AduScenarioColumn = {
+    monthlyCashFlow: base.monthlyCashFlow,
+    annualNOI: base.annualNOI,
+    cashInvested: base.totalCashInvested,
+    cashOnCash: base.cashOnCash,
+    equityCreated: base.equityCreated,
+    dscr: base.dscr,
+  };
+  const aduOnly: AduScenarioColumn = {
+    monthlyCashFlow: adu.monthlyCashFlow,
+    annualNOI: adu.monthlyNOI.times(TWELVE),
+    cashInvested: adu.cashInvested,
+    cashOnCash: adu.cashOnCash,
+    equityCreated: adu.equityCreated,
+    dscr: aduDebt.gt(0) ? adu.monthlyNOI.times(TWELVE).div(aduDebt) : null,
+  };
+  const cash = without.cashInvested.plus(aduOnly.cashInvested);
+  const noi = without.annualNOI.plus(aduOnly.annualNOI);
+  const debt = base.annualDebtService.plus(aduDebt);
+  const monthly = without.monthlyCashFlow.plus(aduOnly.monthlyCashFlow);
+  const together: AduScenarioColumn = {
+    monthlyCashFlow: monthly,
+    annualNOI: noi,
+    cashInvested: cash,
+    cashOnCash: safeDiv(monthly.times(TWELVE), cash),
+    // Without an ARV the house has no equity figure; the ADU's still counts on its own.
+    equityCreated: (base.equityCreated ?? ZERO).plus(adu.equityCreated),
+    dscr: debt.gt(0) ? noi.div(debt) : null,
+  };
+  return { without, aduOnly, together };
 }

@@ -51,3 +51,23 @@ test("break-even cost per sq ft zeroes equity created", () => {
   const r = analyzeAdu({ ...base, costPerSqft: be.toString() }, ctx);
   assert.ok(r.equityCreated.abs().lt("0.01"), r.equityCreated.toString());
 });
+
+test("without / ADU only / together columns add up", async () => {
+  const { analyzeDeal } = await import("./analysis");
+  const { compareWithAdu } = await import("./adu");
+  const base = analyzeDeal({
+    purchasePrice: "300000", closingCosts: "6000", rehabCosts: "0", afterRepairValue: "330000",
+    isCashPurchase: false, downPaymentPercent: "25", interestRate: "7", loanTermYears: 30,
+    units: 1, squareFeet: null, monthlyRent: "2600", otherMonthlyIncome: "0", vacancyRate: "5",
+    propertyTaxAnnual: "3000", insuranceAnnual: "1500", hoaMonthly: "0", utilitiesMonthly: "0", otherMonthlyExpenses: "0",
+    maintenancePercent: "5", capexPercent: "5", managementPercent: "8",
+    appreciationRate: "3", rentGrowthRate: "3", expenseGrowthRate: "2.5", sellingCostPercent: "6", holdingPeriodYears: 30,
+  } as never, { yearOneOnly: true });
+  const a = analyzeAdu({ ...adu, financing: { type: "loan", financedPct: "80", rate: "8.5", termYears: 30 } }, { ...ctx, baseMonthlyCashFlow: base.monthlyCashFlow });
+  const c = compareWithAdu(base, a);
+  assert.equal(c.together.monthlyCashFlow.toFixed(2), base.monthlyCashFlow.plus(a.monthlyCashFlow).toFixed(2));
+  assert.equal(c.together.cashInvested.toFixed(2), base.totalCashInvested.plus(a.cashInvested).toFixed(2));
+  assert.equal(c.together.equityCreated!.toFixed(2), base.equityCreated!.plus(a.equityCreated).toFixed(2));
+  assert.equal(c.together.cashOnCash!.toFixed(6), c.together.monthlyCashFlow.times(12).div(c.together.cashInvested).toFixed(6));
+  assert.equal(c.together.dscr!.toFixed(6), base.annualNOI.plus(a.monthlyNOI.times(12)).div(base.annualDebtService.plus(a.monthlyPayment.times(12))).toFixed(6));
+});

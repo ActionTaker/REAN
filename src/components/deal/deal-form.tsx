@@ -20,7 +20,7 @@ import { SampleBadge } from "@/components/common/sample-badge";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
 import { DEAL_STATUSES, PROPERTY_TYPES, US_STATES } from "@/lib/constants";
-import { analyzeBrrrr, analyzeDeal, analyzeFlip, chartNumber, dec, formatCurrency, formatPercent, type InvestmentCriteria } from "@/lib/finance";
+import { analyzeBrrrr, analyzeDeal, analyzeFlip, chartNumber, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
 import { formValuesToInputs } from "@/lib/property-mapping";
 import { dealSchema, type DealFormOutput, type DealFormValues } from "@/lib/validation/deal";
 import { saveDeal } from "@/app/actions/properties";
@@ -45,7 +45,7 @@ import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals 
 import { buildRehabPlan, regionalFactor, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import { suggestAduRent } from "@/lib/finance/adu";
 import { defaultAduInputs, runAdu, type SavedAduInputs } from "@/lib/adu";
-import { AduMetrics, AduSection } from "./adu-panels";
+import { AduComparison, AduSection } from "./adu-panels";
 import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type CostEstimate } from "@/lib/estimates/costs";
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
@@ -787,12 +787,10 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         {adu && (
           <div className="space-y-2">
             <h3 className="flex items-baseline gap-2 text-sm font-semibold">
-              With the ADU
-              <span className="text-xs font-normal text-muted-foreground">
-                {formatCurrency(adu.totalCost)} build · valued at {formatPercent(adu.capRateUsed)} cap
-              </span>
+              ADU scenario
+              <span className="text-xs font-normal text-muted-foreground">compare before and after</span>
             </h3>
-            <AduMetrics r={adu} />
+            <AduComparison base={rentalView} r={adu} compact />
           </div>
         )}
         {flip && (
