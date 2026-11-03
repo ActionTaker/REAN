@@ -2,11 +2,15 @@
 
 Working list for continuous development. Each item ships as its own commit with tests and a browser check.
 
-## Now
-- [ ] Sample BRRRR and Flip deals so the demo shows every strategy
+## Now (owner asked: polish what exists before new features)
+- [x] Sample BRRRR and Flip deals so the demo shows every strategy
+- [x] Analyzer: fold lookup after apply, compact estimate hints, collapsible long-term assumptions, friendly empty state
+- [x] Dashboard/property pages: full-width card names, foldable projection tables, BRRRR return note
+- [x] Mobile pass (no horizontal scroll on any page; compact strategy picker; two short fields per row)
+- [x] Zero console errors across all pages (fixed settings hydration mismatch)
+- [x] BRRRR/Flip money figures in compare and dashboard use real purchase financing
 - [ ] Settings: default strategy and BRRRR/Flip defaults (hard money, refinance, selling costs)
-- [ ] Strategy filter on My Properties; strategy breakdown on the dashboard
-- [ ] Mobile pass on the analyzer and comps panels
+- [ ] Strategy filter on My Properties
 
 ## Next
 - [ ] Rent roll for 2–4 unit properties (rent per unit)

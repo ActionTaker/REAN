@@ -37,7 +37,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Flips aren't rentals: keep them out of rental totals and report their profit separately.
   const rentalItems = items.filter((i) => i.strategy !== "FLIP");
   const flips = items.filter((i) => i.flip);
-  const s = summarizePortfolio(rentalItems.map((i) => i.analysis));
+  const rental = summarizePortfolio(rentalItems.map((i) => i.analysis));
+  // Money actually going in: every deal (flips too), at its real purchase price and real cash in —
+  // not the post-refinance view a BRRRR uses for its rental metrics.
+  const s = {
+    ...rental,
+    totalPurchasePrice: items.reduce((acc, i) => acc.plus(dec(i.record.purchasePrice)), dec(0)),
+    totalCashInvested: items.reduce((acc, i) => acc.plus((i.brrrr ?? i.flip)?.hold.totalCashIn ?? i.analysis.totalCashInvested), dec(0)),
+  };
   const flipProfit = flips.reduce((acc, i) => acc.plus(i.flip!.profit), dec(0));
   const firstName = user.name?.split(" ")[0];
 
