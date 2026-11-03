@@ -1,5 +1,5 @@
 import { D, dec, type DecimalLike } from "@/lib/finance/decimal";
-import { benchmarkFor } from "./state-data";
+import { NATIONAL_PROPERTY_TAX_PCT, PROPERTY_TAX_PCT, benchmarkFor } from "./state-data";
 
 /** U.S.-average cost to rebuild a house, per sq ft, before the regional factor. */
 const REBUILD_PER_SQFT = 175;
@@ -48,4 +48,18 @@ export function estimateClosingCosts(input: { state?: string | null; price?: Dec
   const { code, data } = benchmarkFor(input.state);
   const amount = price.times(data.closingPct).div(100).div(10).toDecimalPlaces(0).times(10);
   return { amount, basis: `${code ?? "U.S."} avg ${data.closingPct}% of price` };
+}
+
+/** Annual property tax from the state's effective rate on owner-occupied homes × purchase price. */
+export function estimatePropertyTax(input: { state?: string | null; price?: DecimalLike | null }): CostEstimate | null {
+  const price = dec(input.price);
+  if (price.lte(0)) return null;
+  const code = input.state?.toUpperCase() ?? null;
+  const known = code ? PROPERTY_TAX_PCT[code] : undefined;
+  const rate = known ?? NATIONAL_PROPERTY_TAX_PCT;
+  const amount = price.times(rate).div(100).div(10).toDecimalPlaces(0).times(10);
+  // The average is across all owners. Where assessments reset at sale (California's Prop 13), a new
+  // buyer pays the 1% base rate on the price plus local levies — more than this average.
+  const note = code === "CA" ? " — new CA buyers pay a 1% base rate on the price plus local levies, so expect more" : "";
+  return { amount, basis: `${known ? code : "U.S."} avg effective rate ${rate}% × purchase price${note}` };
 }

@@ -46,3 +46,12 @@ test("rehab totals apply contingency and round to $50", () => {
   assert.equal(t.contingency.toString(), "1849.5");
   assert.equal(t.total.toString(), "14200"); // 14,179.5 → 14,200
 });
+
+test("property tax = state effective rate × price; unknown state uses the U.S. average", async () => {
+  const { estimatePropertyTax } = await import("./costs");
+  assert.equal(estimatePropertyTax({ state: "TX", price: 300_000 })!.amount.toString(), "4800"); // 1.60%
+  assert.equal(estimatePropertyTax({ state: "ca", price: 800_000 })!.amount.toString(), "5440"); // 0.68%
+  assert.equal(estimatePropertyTax({ state: "DC", price: 500_000 })!.amount.toString(), "4500"); // U.S. 0.90%
+  assert.match(estimatePropertyTax({ state: null, price: 100_000 })!.basis, /U\.S\. avg/);
+  assert.equal(estimatePropertyTax({ state: "TX", price: 0 }), null);
+});

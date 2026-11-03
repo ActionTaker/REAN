@@ -42,7 +42,7 @@ import { emptyArvAnalysis, type ArvAnalysis } from "@/lib/property-data/arv-anal
 import { perUnitSubject } from "@/lib/property-data/comps-arv";
 import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
 import { buildRehabPlan, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
-import { estimateClosingCosts, estimateInsurance, type CostEstimate } from "@/lib/estimates/costs";
+import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type CostEstimate } from "@/lib/estimates/costs";
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
 import { AddressLookup } from "./address-lookup";
@@ -129,6 +129,8 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
   const closingEst = useMemo(() => estimateClosingCosts({ state: values.state, price: priceStr }), [values.state, priceStr]);
   const insuranceAuto = useAutoEstimate("insuranceAnnual", insuranceEst, getValues, setValue);
   const closingAuto = useAutoEstimate("closingCosts", closingEst, getValues, setValue);
+  const taxEst = useMemo(() => estimatePropertyTax({ state: values.state, price: priceStr }), [values.state, priceStr]);
+  const taxAuto = useAutoEstimate("propertyTaxAnnual", taxEst, getValues, setValue);
 
   // ── Rehab plan: rebuild from property facts until customized; its total drives rehabCosts ──
   const rehabPlan = (values.rehabPlan ?? null) as RehabPlan | null;
@@ -401,7 +403,19 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         {strategy === "FLIP" ? (
           <Section title="Carrying costs" description="Owned while you rehab and sell: taxes, insurance and HOA (utilities are under Rehab & holding).">
             <div className="grid gap-4 sm:grid-cols-3">
-              {num("propertyTaxAnnual", "Property taxes", { prefix: "$", suffix: "/yr" })}
+              {num("propertyTaxAnnual", "Property taxes", {
+              prefix: "$",
+              suffix: "/yr",
+              hint: (
+                <TaxHint
+                  est={taxEst}
+                  auto={taxAuto}
+                  record={marketData?.propertyTaxAnnual ?? null}
+                  current={String(values.propertyTaxAnnual ?? "")}
+                  onUseRecord={(v) => setValue("propertyTaxAnnual", v as never, { shouldDirty: true, shouldValidate: true })}
+                />
+              ),
+            })}
               {num("insuranceAnnual", "Insurance", { prefix: "$", suffix: "/yr", hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" /> })}
               {num("hoaMonthly", "HOA fees", { prefix: "$", suffix: "/mo" })}
             </div>
@@ -409,7 +423,19 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         ) : (
         <Section title="Operating expenses" description="Fixed costs plus reserves estimated as a share of income.">
           <div className="grid gap-4 sm:grid-cols-3">
-            {num("propertyTaxAnnual", "Property taxes", { prefix: "$", suffix: "/yr" })}
+            {num("propertyTaxAnnual", "Property taxes", {
+              prefix: "$",
+              suffix: "/yr",
+              hint: (
+                <TaxHint
+                  est={taxEst}
+                  auto={taxAuto}
+                  record={marketData?.propertyTaxAnnual ?? null}
+                  current={String(values.propertyTaxAnnual ?? "")}
+                  onUseRecord={(v) => setValue("propertyTaxAnnual", v as never, { shouldDirty: true, shouldValidate: true })}
+                />
+              ),
+            })}
             {num("insuranceAnnual", "Insurance", { prefix: "$", suffix: "/yr", hint: <EstimateHint est={insuranceEst} auto={insuranceAuto} fallback="Enter state & sq ft to estimate" /> })}
             {num("hoaMonthly", "HOA fees", { prefix: "$", suffix: "/mo" })}
             {num("utilitiesMonthly", "Utilities (owner-paid)", { prefix: "$", suffix: "/mo" })}
@@ -622,7 +648,7 @@ type AutoState = { isAuto: boolean; apply: () => void };
  * the estimate stops overwriting it (and can be re-applied from the hint).
  */
 function useAutoEstimate(
-  name: "insuranceAnnual" | "closingCosts",
+  name: "insuranceAnnual" | "closingCosts" | "propertyTaxAnnual",
   est: CostEstimate | null,
   getValues: (n: Name) => unknown,
   setValue: (n: Name, v: never, o?: object) => void,
@@ -667,5 +693,47 @@ function EstimateHint({ est, auto, fallback }: { est: CostEstimate | null; auto:
         Use
       </button>
     </span>
+  );
+}
+
+/**
+ * Property tax: state-average estimate on the purchase price (auto-filled like insurance),
+ * plus the county's current bill from the address lookup when there is one.
+ */
+function TaxHint({
+  est,
+  auto,
+  record,
+  current,
+  onUseRecord,
+}: {
+  est: CostEstimate | null;
+  auto: AutoState;
+  record: { amount: string; year: number } | null;
+  current: string;
+  onUseRecord: (v: string) => void;
+}) {
+  const usingRecord = record !== null && current.trim() === record.amount;
+  return (
+    <div className="space-y-0.5">
+      <EstimateHint est={est} auto={auto} fallback="Enter price & state to estimate" />
+      {record && (
+        <div>
+          {usingRecord ? (
+            <span>
+              <span className="mr-1 rounded bg-muted px-1 py-px text-[10px] font-medium text-foreground">County record</span>
+              {record.year} bill — the seller&apos;s taxes; may change when you buy
+            </span>
+          ) : (
+            <span>
+              County record {formatCurrency(dec(record.amount))} ({record.year}) ·{" "}
+              <button type="button" onClick={() => onUseRecord(record.amount)} className="font-medium text-foreground underline underline-offset-2">
+                Use
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

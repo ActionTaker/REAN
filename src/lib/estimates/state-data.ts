@@ -76,3 +76,21 @@ export function benchmarkFor(state: string | null | undefined): { code: string |
   const data = code ? STATE_BENCHMARKS[code] : undefined;
   return data ? { code, data } : { code: null, data: NATIONAL };
 }
+
+/**
+ * Effective property tax rate on owner-occupied homes, % of market value
+ * (taxes actually paid ÷ market value). 2023 tax-year data from the Tax
+ * Foundation and Lincoln Institute 50-State Property Tax Comparison, as
+ * compiled by taxfightback.com (2025). DC not included → U.S. average.
+ * Investor-owned homes often pay more (no homestead exemption), and many
+ * states reassess at sale — so this is a starting point, not a bill.
+ */
+export const PROPERTY_TAX_PCT: Record<string, string> = {
+  AL: "0.37", AK: "0.98", AZ: "0.49", AR: "0.57", CA: "0.68", CO: "0.48", CT: "1.73", DE: "0.43", FL: "0.71", GA: "0.72",
+  HI: "0.27", ID: "0.43", IL: "1.88", IN: "0.73", IA: "1.38", KS: "1.22", KY: "0.72", LA: "0.55", ME: "0.99", MD: "0.99",
+  MA: "1.04", MI: "1.23", MN: "0.96", MS: "0.65", MO: "0.88", MT: "0.57", NE: "1.46", NV: "0.48", NH: "1.86", NJ: "2.23",
+  NM: "0.55", NY: "1.46", NC: "0.67", ND: "0.84", OH: "1.41", OK: "0.85", OR: "0.82", PA: "1.26", RI: "1.30", SC: "0.43",
+  SD: "1.08", TN: "0.48", TX: "1.60", UT: "0.44", VT: "1.59", VA: "0.75", WA: "0.84", WV: "0.53", WI: "1.51", WY: "0.55",
+};
+
+export const NATIONAL_PROPERTY_TAX_PCT = "0.90";

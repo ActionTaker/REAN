@@ -66,6 +66,7 @@ Each deal has a strategy, chosen at the top of the analyzer (`Property.strategy`
 - **Rehab:** pick a scope (Cosmetic / Moderate / Heavy). Line items such as paint and flooring scale with square footage, kitchens and appliances with units, and bathrooms with bath count; a contingency is added on top (10% for cosmetic, 15% for moderate and heavy), and everything is multiplied by a state construction-cost factor. At U.S. average costs this comes to roughly $14, $46 and $96 per sq ft. "Customize line items" lets you edit or add items; the plan is saved with the deal (`Property.rehabPlan`) and shown on the detail page and report.
 - **Insurance:** the state's average HO-3 premium (Insurance.com, Sept 2026; quoted for $300k of dwelling coverage), scaled by estimated rebuild cost (sq ft × $175 × the state cost factor), then multiplied by 1.15 because landlord policies cost more.
 - **Closing costs:** the state's average buyer closing cost as a % of price (Lodestar 2025 via Bankrate).
+- **Property tax:** the state's average effective rate on owner-occupied homes (2023 tax year; Tax Foundation / Lincoln Institute) × purchase price. When an address lookup returns the county's current bill, both numbers are shown with **Use**. The average understates what a new buyer pays where assessments reset at sale (California is flagged), and investors often lose homestead exemptions.
 
 ## Max offer price & stress test
 
