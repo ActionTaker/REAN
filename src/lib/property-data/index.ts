@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { demoLookup } from "./demo";
 import { rentcastLookup } from "./rentcast";
 import { lookupArv, lookupRent } from "./comps-arv";
+import { needsCoordinates, withCoordinates } from "./geocode";
 import { LookupError, normalizeAddressKey, type PropertyLookup } from "./types";
 
 export * from "./types";
@@ -41,11 +42,21 @@ export async function lookupProperty(address: string, opts: { refresh?: boolean 
   if (!opts.refresh) {
     const hit = await prisma.propertyDataCache.findUnique({ where: { addressKey: key } });
     if (hit && Date.now() - hit.fetchedAt.getTime() < CACHE_DAYS * 86_400_000) {
-      return withFreshArv({ ...(hit.payload as unknown as PropertyLookup), cached: true });
+      const payload = hit.payload as unknown as PropertyLookup;
+      // Older cached lookups have no comp coordinates: fill them free from the Census geocoder, once.
+      if (needsCoordinates(payload)) {
+        const filled = await withCoordinates(payload);
+        if (filled !== payload) {
+          await prisma.propertyDataCache.update({ where: { addressKey: key }, data: { payload: filled as object } });
+        }
+        return withFreshArv({ ...filled, cached: true });
+      }
+      return withFreshArv({ ...payload, cached: true });
     }
   }
 
-  const data = withFreshArv(provider === "demo" ? demoLookup(address) : await rentcastLookup(address, process.env.RENTCAST_API_KEY!));
+  const raw = provider === "demo" ? demoLookup(address) : await rentcastLookup(address, process.env.RENTCAST_API_KEY!);
+  const data = withFreshArv(provider === "demo" ? raw : await withCoordinates(raw));
   await prisma.propertyDataCache.upsert({
     where: { addressKey: key },
     update: { payload: data as object, fetchedAt: new Date(), provider },

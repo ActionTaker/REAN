@@ -45,6 +45,8 @@ Setup: put `RENTCAST_API_KEY=...` in `.env`. Lookups are cached per address for 
 - **ARV** = the weighted average of comps the user marks *renovated*. With no comps marked, it is the upper quartile of adjusted prices, and never below the as-is value. **Rent** = the weighted average of adjusted rents, with a lower-quartile "conservative" option shown alongside.
 - The panel (`comps-arv-sheet.tsx`) is free to use: include or exclude comps, tag condition, edit adjustment percentages, exclude active listings, compare methods, enter a manual value, and see a confidence rating and a distance map. Choices are saved per deal in `Property.arvAnalysis` / `rentAnalysis`.
 
+**Comps map:** Leaflet with OpenStreetMap tiles, so no key is needed. Lookups that lack coordinates (older caches and saved deals) are filled once, for free, by the U.S. Census batch geocoder (`geocode.ts`) and saved back. OpenStreetMap's public tile servers are meant for light use; before launch, point `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION` at a tile provider (MapTiler, Stadia, etc.).
+
 **Street photos:** `/api/street-view` proxies Google Street View Static (`GOOGLE_MAPS_API_KEY`, kept on the server). It runs the free metadata check first, so addresses with no imagery don't use image quota. Without a key, the UI says so.
 
 ## Cost estimates (rehab, insurance, closing)

@@ -33,7 +33,8 @@ export function PropertyPhoto({
     const ctrl = new AbortController();
     fetch(`/api/street-view?${new URLSearchParams({ location, w: String(width), h: String(height) })}`, { signal: ctrl.signal })
       .then(async (res) => {
-        if (res.ok) {
+        // An image means a photo; JSON means a "no photo" state with its reason.
+        if (res.ok && res.headers.get("content-type")?.startsWith("image/")) {
           url = URL.createObjectURL(await res.blob());
           setState({ src: url, loading: false });
         } else {

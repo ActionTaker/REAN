@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { DealForm } from "@/components/deal/deal-form";
-import { getProperty } from "@/lib/data/properties";
+import { ensureCoordinates, getProperty } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { recordToFormValues } from "@/lib/property-mapping";
 
@@ -14,6 +14,8 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const [property, settings] = await Promise.all([getProperty(id), getSettings()]);
   if (!property) notFound();
+  // Deals saved before comp coordinates existed: fill them once (free Census geocoder) so the comps map works.
+  const marketData = property.marketData ? await ensureCoordinates(property.id, property.marketData) : null;
   return (
     <div className="space-y-6">
       <div>
@@ -22,7 +24,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         </Link>
         <PageHeader className="mt-2" title={`Edit · ${property.name}`} description="Adjust any assumption and see the impact before saving." />
       </div>
-      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} isSample={property.isSample} initialMarketData={property.marketData} />
+      <DealForm propertyId={id} defaultValues={recordToFormValues(property)} criteria={settings} isSample={property.isSample} initialMarketData={marketData} />
     </div>
   );
 }

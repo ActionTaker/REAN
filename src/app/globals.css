@@ -177,3 +177,58 @@
     display: none !important;
   }
 }
+
+/* Comps map pins (Leaflet divIcons) */
+.comp-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: var(--series-1);
+  color: white;
+  font: 600 11px/1 var(--font-geist-sans), system-ui, sans-serif;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+.comp-pin--off {
+  background: white;
+  color: var(--series-1);
+  border-color: var(--series-1);
+  opacity: 0.75;
+}
+.comp-pin--reno {
+  box-shadow: 0 0 0 3px var(--positive), 0 1px 3px rgb(0 0 0 / 0.35);
+}
+.subject-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #111;
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+}
+.comp-pin--legend,
+.subject-pin--legend {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  vertical-align: -3px;
+  border-width: 1px;
+  border-radius: 9999px;
+}
+.subject-pin--legend {
+  border-radius: 4px;
+  font-size: 11px;
+}
+.leaflet-container {
+  font: inherit;
+}

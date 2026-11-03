@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ reason: "unauthorized" }, { status: 401 });
 
   const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return NextResponse.json({ reason: "not_configured" }, { status: 404 });
+  if (!key) return NextResponse.json({ reason: "not_configured" });
 
   const location = (req.nextUrl.searchParams.get("location") ?? "").trim().slice(0, 200);
   if (location.length < 5) return NextResponse.json({ reason: "invalid" }, { status: 400 });
@@ -25,15 +25,15 @@ export async function GET(req: NextRequest) {
       `https://maps.googleapis.com/maps/api/streetview/metadata?${new URLSearchParams({ location, source: "outdoor", key })}`,
       { cache: "no-store", signal: AbortSignal.timeout(8000) },
     ).then((r) => r.json() as Promise<{ status: string }>);
-    if (meta.status === "REQUEST_DENIED") return NextResponse.json({ reason: "key_rejected" }, { status: 404 });
-    if (meta.status !== "OK") return NextResponse.json({ reason: "no_imagery" }, { status: 404 });
+    if (meta.status === "REQUEST_DENIED") return NextResponse.json({ reason: "key_rejected" });
+    if (meta.status !== "OK") return NextResponse.json({ reason: "no_imagery" });
 
     // No heading → Google points the camera at the requested location (the house).
     const img = await fetch(
       `https://maps.googleapis.com/maps/api/streetview?${new URLSearchParams({ location, size: `${w}x${h}`, fov: "80", source: "outdoor", return_error_code: "true", key })}`,
       { cache: "no-store", signal: AbortSignal.timeout(10000) },
     );
-    if (!img.ok) return NextResponse.json({ reason: "no_imagery" }, { status: 404 });
+    if (!img.ok) return NextResponse.json({ reason: "no_imagery" });
     return new NextResponse(await img.arrayBuffer(), {
       headers: {
         "Content-Type": img.headers.get("content-type") ?? "image/jpeg",

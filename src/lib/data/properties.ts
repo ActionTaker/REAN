@@ -1,5 +1,6 @@
 import "server-only";
-import type { Property } from "@prisma/client";
+import type { Prisma, Property } from "@prisma/client";
+import { needsCoordinates, withCoordinates } from "@/lib/property-data/geocode";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth-helpers";
 import type { PropertyRecord } from "@/lib/property-mapping";
@@ -93,4 +94,15 @@ export async function countSampleProperties(userId: string) {
 
 export async function seedSamples(userId: string) {
   await prisma.property.createMany({ data: sampleRowsFor(userId) });
+}
+
+/** Fill missing comp coordinates in a deal's saved market data and persist them (scoped to the signed-in user). */
+export async function ensureCoordinates(id: string, lookup: PropertyLookup): Promise<PropertyLookup> {
+  if (!needsCoordinates(lookup)) return lookup;
+  const filled = await withCoordinates(lookup);
+  if (filled !== lookup) {
+    const user = await requireUser();
+    await prisma.property.updateMany({ where: { id, userId: user.id }, data: { marketData: filled as unknown as Prisma.InputJsonValue } });
+  }
+  return filled;
 }

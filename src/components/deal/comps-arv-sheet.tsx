@@ -26,6 +26,7 @@ import {
 import type { ArvAnalysis } from "@/lib/property-data/arv-analysis";
 import type { PropertyLookup } from "@/lib/property-data/types";
 import { NumberInput } from "./number-input";
+import { CompsMap } from "./comps-map";
 
 const money = (v: D | null | undefined) => (v ? formatCurrency(v) : "—");
 const signed = (v: D) => (v.isZero() ? "—" : `${v.isNegative() ? "−" : "+"}${formatCurrency(v.abs())}`);
@@ -212,7 +213,7 @@ export function CompsArvSheet({
           </section>
 
           {/* ── Subject + confidence + map ─────────────────────────── */}
-          <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          <section className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-4">
               <div className="rounded-xl border p-4">
                 <h3 className="text-sm font-medium">Subject property</h3>
@@ -257,7 +258,7 @@ export function CompsArvSheet({
                 )}
               </div>
             </div>
-            <CompMap lookup={lookup} rows={result.rows} letters={letters} />
+            <CompsMap lookup={lookup} rows={result.rows} letters={letters} priceSuffix={copy.per} />
           </section>
 
           {/* ── Comps table ────────────────────────────────────────── */}
@@ -426,53 +427,5 @@ export function CompsArvSheet({
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-/** Comps placed around the subject by real coordinates, with distance rings. */
-function CompMap({ lookup, rows, letters }: { lookup: PropertyLookup; rows: CompRow[]; letters: Map<string, string> }) {
-  const lat0 = lookup.facts.latitude, lng0 = lookup.facts.longitude;
-  const pts = rows.filter((r) => r.comp.latitude != null && r.comp.longitude != null);
-  if (lat0 == null || lng0 == null || pts.length === 0) {
-    return (
-      <div className="flex items-center justify-center rounded-xl border border-dashed p-6 text-center text-xs text-muted-foreground">
-        <p>
-          The map needs coordinates. Press <strong className="text-foreground">Refresh data</strong> on the address lookup — lookups saved before this
-          feature don&apos;t include them.
-        </p>
-      </div>
-    );
-  }
-  // Miles east/north of the subject (flat-earth approximation is fine at a few miles).
-  const mi = (lat: number, lng: number) => ({ x: (lng - lng0) * 69.17 * Math.cos((lat0 * Math.PI) / 180), y: (lat - lat0) * 69.0 });
-  const coords = pts.map((r) => ({ r, ...mi(r.comp.latitude!, r.comp.longitude!) }));
-  const maxR = Math.max(0.5, ...coords.map((c) => Math.hypot(c.x, c.y))) * 1.12;
-  const S = 300, C = S / 2, k = (C - 18) / maxR;
-  const rings = [0.25, 0.5, 1, 2, 3, 5].filter((d) => d < maxR).slice(-3);
-  return (
-    <figure className="rounded-xl border p-2">
-      <svg viewBox={`0 0 ${S} ${S}`} role="img" aria-label="Comparable sales around the subject property" className="w-full">
-        {rings.map((d) => (
-          <g key={d}>
-            <circle cx={C} cy={C} r={d * k} fill="none" stroke="var(--grid)" strokeDasharray="3 3" />
-            <text x={C + d * k * 0.707 + 2} y={C - d * k * 0.707 - 2} fontSize="9" fill="var(--axis)">{d} mi</text>
-          </g>
-        ))}
-        {coords.map(({ r, x, y }) => {
-          const cx = C + x * k, cy = C - y * k;
-          const reno = r.condition === "renovated";
-          return (
-            <g key={r.id} opacity={r.included ? 1 : 0.45}>
-              <circle cx={cx} cy={cy} r="9" fill={r.included ? "var(--series-1)" : "var(--card)"} stroke={reno ? "var(--positive)" : "var(--series-1)"} strokeWidth={reno ? 3 : 1.5} />
-              <text x={cx} y={cy + 3} textAnchor="middle" fontSize="9" fontWeight="600" fill={r.included ? "white" : "var(--series-1)"}>{letters.get(r.id)}</text>
-            </g>
-          );
-        })}
-        <path d={`M${C} ${C - 11}l7 11l-7 11l-7 -11z`} fill="var(--foreground)" />
-      </svg>
-      <figcaption className="px-1 pb-1 text-[11px] text-muted-foreground">
-        ◆ your property · filled = in use · green ring = marked renovated · north is up
-      </figcaption>
-    </figure>
   );
 }
