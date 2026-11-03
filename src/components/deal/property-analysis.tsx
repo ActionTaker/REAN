@@ -160,6 +160,19 @@ function BuyHoldAnalysis({
               </div>
             ))}
           </dl>
+          {record.rentRoll && record.rentRoll.length > 1 && (
+            <div className="mt-4">
+              <div className="mb-1 text-xs text-muted-foreground">Rent roll</div>
+              <div className="divide-y rounded-lg border text-sm">
+                {record.rentRoll.slice(0, record.units).map((u, i) => (
+                  <div key={i} className="flex justify-between gap-4 px-3 py-1.5">
+                    <span>{u.label || `Unit ${i + 1}`}{u.beds || u.baths ? <span className="text-xs text-muted-foreground"> · {u.beds || "—"} bd / {u.baths || "—"} ba</span> : null}</span>
+                    <span className="num">{u.rent ? formatCurrency(dec(u.rent.replace(/[,$\s]/g, "") || "0")) : "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {record.notes && (
             <div className="mt-4 rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-line">{record.notes}</div>
           )}

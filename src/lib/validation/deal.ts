@@ -108,6 +108,11 @@ export const aduInputsSchema = z.object({
   financing: z.object({ type: z.enum(["cash", "loan"]), financedPct: num, rate: num, termYears: num }),
 });
 
+/** Rent roll: one row per unit. Lenient strings; blank rent counts as 0. */
+export const rentRollSchema = z
+  .array(z.object({ label: z.string().trim().max(40), beds: z.string().trim().max(5), baths: z.string().trim().max(5), rent: money0 }))
+  .max(500);
+
 export const dealSchema = z
   .object({
     name: z.string().trim().min(1, "Give this deal a name").max(120),
@@ -134,6 +139,7 @@ export const dealSchema = z
     strategy: z.enum(["BUY_HOLD", "BRRRR", "FLIP"]).optional().default("BUY_HOLD"),
     strategyInputs: strategyInputsSchema.nullable().optional().default(null),
     aduInputs: aduInputsSchema.nullable().optional().default(null),
+    rentRoll: rentRollSchema.nullable().optional().default(null),
     rehabPlan: z
       .object({
         scope: z.enum(["COSMETIC", "MODERATE", "HEAVY"]),

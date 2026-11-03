@@ -75,6 +75,7 @@ export async function duplicateProperty(id: string, asStrategy?: StrategyValue):
       strategyInputs: (strategyInputs ?? undefined) as Prisma.InputJsonValue | undefined,
       strategy: target ?? src.strategy,
       aduInputs: (rest.aduInputs ?? undefined) as Prisma.InputJsonValue | undefined,
+      rentRoll: (rest.rentRoll ?? undefined) as Prisma.InputJsonValue | undefined,
       name: target ? `${src.name} (${STRATEGIES.find((s) => s.value === target)!.label})` : `${src.name} (copy)`,
       isSample: false,
       status: "ANALYZING",

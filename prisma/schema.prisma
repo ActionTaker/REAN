@@ -103,6 +103,8 @@ model Property {
   strategyInputs Json?
   /// ADU add-on scenario (type, size, cost, rent, financing) — null = no ADU. See src/lib/adu.ts.
   aduInputs Json?
+  /// Rent per unit for 2+ unit properties; monthlyRent holds their total.
+  rentRoll  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

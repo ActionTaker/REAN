@@ -50,6 +50,8 @@ import { estimateClosingCosts, estimateInsurance, estimatePropertyTax, type Cost
 import { ArvBreakdown, CashFlowStatement, CriteriaPanel, KeyMetrics, SaleSummary } from "./analysis-panels";
 import { NumberInput } from "./number-input";
 import { AfterTaxSummary } from "./tax-panel";
+import { RentRollEditor } from "./rent-roll";
+import { rentRollTotal, rollForUnits, seedRentRoll, type RentRollRow } from "@/lib/rent-roll";
 import { DEFAULT_TAX_ASSUMPTIONS, type TaxAssumptions } from "@/lib/finance/tax";
 import { AddressLookup } from "./address-lookup";
 import type { PropertyLookup } from "@/lib/property-data/types";
@@ -109,6 +111,18 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     return { checks: c, rating: rateStrategy(strategy, c, { brrrr, flip }) };
   }, [strategy, holdChecks, holdRating, sSaved.goals, brrrr, flip, liveInputs]);
   const isCash = !!values.isCashPurchase;
+
+  // ── Rent roll (2+ units): the per-unit rents' total is the deal's monthly rent ──
+  const rentRoll = (values.rentRoll ?? null) as RentRollRow[] | null;
+  const rollUnits = parseInt(String(values.units ?? ""), 10) || 1;
+  const rollTotal = rentRoll ? rentRollTotal(rollForUnits(rentRoll, rollUnits)).toString() : null;
+  useEffect(() => {
+    // Keep monthlyRent in step when the unit count changes the roll's size.
+    if (rollTotal !== null && rollTotal !== String(getValues("monthlyRent") ?? "")) {
+      setValue("monthlyRent", rollTotal as never, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [rollTotal, getValues, setValue]);
+  const setRentRoll = (rows: RentRollRow[] | null) => setValue("rentRoll", rows as never, { shouldDirty: true });
 
   // ── ADU scenario (rentals only) ──
   const aduSaved = strategy === "FLIP" ? null : ((values.aduInputs ?? null) as SavedAduInputs | null);
@@ -205,6 +219,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     set("propertyTaxAnnual", d.propertyTaxAnnual?.amount, "taxes");
     set("hoaMonthly", d.hoaMonthly, "HOA");
     // Comp-based market rent (adjusted comps) × units; RentCast's own estimate as a fallback.
+    if (d.rent) setValue("rentRoll", null as never, { shouldDirty: true });
     set("monthlyRent", d.rent?.compsPerUnit ? dec(d.rent.compsPerUnit).times(Math.max(1, d.rent.units)).toString() : d.rent?.total, "rent");
     set("afterRepairValue", d.arv?.estimate, "ARV");
     if (!String(getValues("purchasePrice") ?? "").trim()) set("purchasePrice", d.value?.estimate, "price (as-is value)");
@@ -414,9 +429,21 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           description={strategy === "BRRRR" ? "Rent once the rehab is done — this pays the refinanced loan." : "Enter the total for all units."}
         >
           <div className="grid gap-4 sm:grid-cols-3">
-            {num("monthlyRent", "Monthly rent (all units)", {
+            {num("monthlyRent", rentRoll ? "Monthly rent (rent roll total)" : "Monthly rent (all units)", {
               prefix: "$",
-              hint:
+              disabled: !!rentRoll,
+              hint: !rentRoll && rollUnits > 1 ? (
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <button type="button" className="font-medium text-foreground underline underline-offset-2" onClick={() => setRentRoll(seedRentRoll(String(values.monthlyRent ?? ""), rollUnits))}>
+                    Enter rent per unit
+                  </button>
+                  {(marketData?.rent?.comparables.length ?? 0) > 0 && (
+                    <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("rent")}>
+                      <ListChecks /> Review rent comps
+                    </Button>
+                  )}
+                </span>
+              ) :
                 (marketData?.rent?.comparables.length ?? 0) > 0 ? (
                   <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("rent")}>
                     <ListChecks /> Review rent comps
@@ -426,6 +453,11 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             {num("otherMonthlyIncome", "Other monthly income", { prefix: "$", hint: "Laundry, parking, storage, pet fees" })}
             {num("vacancyRate", "Vacancy rate", { suffix: "%", hint: "5–8% is common for SFR" })}
           </div>
+          {rentRoll && (
+            <div className="mt-4">
+              <RentRollEditor rows={rentRoll} units={rollUnits} onChange={setRentRoll} onRemove={() => setRentRoll(null)} />
+            </div>
+          )}
         </Section>
         )}
 
@@ -563,6 +595,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             currentArv={dec(formValuesToInputs(values).monthlyRent as string).div(Math.max(1, unitsNum)).toDecimalPlaces(2).toString()}
             onUseArv={(v, method) => {
               const total = dec(v).times(Math.max(1, unitsNum)).toString();
+              setValue("rentRoll", null as never, { shouldDirty: true }); // one total from comps replaces per-unit rents
               setValue("monthlyRent", total as never, { shouldDirty: true, shouldValidate: true });
               setValue("rentAnalysis", { ...rentAnalysis, method } as never, { shouldDirty: true });
               toast.success(`Rent set to ${formatCurrency(dec(total))}/mo${unitsNum > 1 ? ` (${unitsNum} units × ${formatCurrency(dec(v))})` : ""}`);
