@@ -33,19 +33,16 @@ export function PropertyCard({ item }: { item: AnalyzedProperty }) {
       href={`/properties/${r.id}`}
       className="group flex flex-col rounded-xl border bg-card p-4 shadow-xs transition-colors hover:border-foreground/20"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate font-medium group-hover:underline">{r.name}</h3>
-            <StrategyBadge strategy={r.strategy} />
-            {r.isSample && <SampleBadge />}
-          </div>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
-            <MapPin className="size-3 shrink-0" />
-            {formatAddress({ ...r, address: null }) || "No location"} · {propertyTypeLabel(r.propertyType)}
-          </p>
-        </div>
+      {/* Name gets the full width; badges sit on their own row so they never truncate it. */}
+      <h3 className="truncate font-medium group-hover:underline" title={r.name}>{r.name}</h3>
+      <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+        <MapPin className="size-3 shrink-0" />
+        {formatAddress({ ...r, address: null }) || "No location"} · {propertyTypeLabel(r.propertyType)}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <RatingBadge rating={rating} />
+        <StrategyBadge strategy={r.strategy} />
+        {r.isSample && <SampleBadge />}
       </div>
       <dl className="mt-4 grid grid-cols-3 gap-2 text-sm">
         {metrics.map(([k, v]) => (

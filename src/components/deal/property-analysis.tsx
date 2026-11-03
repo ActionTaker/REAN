@@ -361,7 +361,14 @@ function StrategyPropertyAnalysis({ record, criteria }: { record: PropertyRecord
           description="Rent, expenses and value compound from the ARV; returns are measured on the cash left in the deal."
           className="print:break-before-page"
         >
-          <ProjectionPanel a={brrrr.rental} />
+          <ProjectionPanel
+            a={brrrr.rental}
+            note={
+              brrrr.cashLeftInDeal.lte(brrrr.hold.totalCashIn.times("0.25"))
+                ? `IRR and equity multiple look very high because only ${brrrr.cashLeftInDeal.gt(0) ? formatCurrency(brrrr.cashLeftInDeal) : "$0"} of your ${formatCurrency(brrrr.hold.totalCashIn)} stays in the deal after the refinance — that's the point of BRRRR. Judge it by the cash flow and cash left, too.`
+                : undefined
+            }
+          />
         </Panel>
       )}
 

@@ -1,6 +1,9 @@
 "use client";
 
-import { CheckCircle2, CircleMinus, TriangleAlert, XCircle } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+
+import { CheckCircle2, ChevronDown, CircleMinus, TriangleAlert, XCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MetricCard, toneFor } from "@/components/common/metric-card";
 import { InfoTip } from "@/components/common/info-tip";
@@ -393,7 +396,9 @@ export function SaleSummary({ a }: { a: DealAnalysis }) {
   );
 }
 
-export function ProjectionPanel({ a, showTable = true }: { a: DealAnalysis; showTable?: boolean }) {
+export function ProjectionPanel({ a, showTable = true, note }: { a: DealAnalysis; showTable?: boolean; note?: React.ReactNode }) {
+  // The year-by-year table is long (up to 30 rows): folded on screen, always printed.
+  const [tableOpen, setTableOpen] = useState(false);
   const data = a.projections.map((p) => ({
     year: p.year,
     propertyValue: chartNumber(p.propertyValue, 0),
@@ -403,8 +408,19 @@ export function ProjectionPanel({ a, showTable = true }: { a: DealAnalysis; show
   return (
     <div className="space-y-5">
       <SaleSummary a={a} />
+      {note && <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{note}</p>}
       <ProjectionChart data={data} />
-      {showTable && <ProjectionTable a={a} />}
+      {showTable && (
+        <div className="space-y-2">
+          <Button type="button" variant="outline" size="sm" className="no-print" onClick={() => setTableOpen((o) => !o)} aria-expanded={tableOpen}>
+            <ChevronDown className={cn("transition-transform", tableOpen && "rotate-180")} />
+            {tableOpen ? "Hide" : "Show"} year-by-year table ({a.projections.length} years)
+          </Button>
+          <div className={cn(!tableOpen && "hidden print:block")}>
+            <ProjectionTable a={a} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

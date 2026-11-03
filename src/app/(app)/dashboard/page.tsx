@@ -68,7 +68,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   const chartItems = [...rentalItems].sort((a, b) => b.analysis.monthlyCashFlow.comparedTo(a.analysis.monthlyCashFlow));
-  const label = (name: string, isSample: boolean) => (isSample ? `${name} (sample)` : name);
+  // Mark samples in chart labels only when they're mixed with the user's own deals (the banner covers the all-sample case).
+  const mixed = rentalItems.some((i) => i.record.isSample) && rentalItems.some((i) => !i.record.isSample);
+  const label = (name: string, isSample: boolean) => (mixed && isSample ? `${name} (sample)` : name);
 
   return (
     <div className="space-y-6">
