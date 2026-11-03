@@ -99,6 +99,11 @@ export const METRICS = {
     formula: "ARV − (Purchase Price + Closing Costs + Rehab)",
     description: "Value added at acquisition if the ARV estimate holds. Not realized until sale or refinance.",
   },
+  maxOffer: {
+    label: "Max Offer Price",
+    formula: "Highest price where every goal you turned on still holds (lowest of each goal's max price)",
+    description: "Found by re-pricing the deal and keeping rent, expenses and loan terms; closing costs scale with price. Set the goals under Max offer price.",
+  },
   maxOffer70: {
     label: "70% Rule Max Offer",
     formula: "ARV × 70% − Rehab Costs",

@@ -27,7 +27,18 @@ const moneyC = (v: D | null) => formatCurrency(v, { cents: true });
 
 // ─── Headline metrics ──────────────────────────────────────────────────────
 
-export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; columns?: 2 | 3 | 6; checks?: CriteriaCheck[] }) {
+export function KeyMetrics({
+  a,
+  columns = 3,
+  checks,
+  maxOffer,
+}: {
+  a: DealAnalysis;
+  columns?: 2 | 3 | 6;
+  checks?: CriteriaCheck[];
+  /** Highest price meeting this deal's goals (see bindingMaxOffer). */
+  maxOffer?: { price: D | null; label: string } | null;
+}) {
   const hasArv = a.equityCreated !== null;
   // When the deal has a goal for a metric, color it by pass/fail (a positive 3.8% that misses a 6% goal isn't "green").
   const goal = (key: string) => checks?.find((c) => c.key === key && c.passed !== null);
@@ -45,8 +56,8 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
         "grid gap-3",
         columns === 2 && "grid-cols-2",
         columns === 3 && "grid-cols-2 sm:grid-cols-3",
-        // 6 cards + a two-column equity card with an ARV → 4 per row on wide screens so rows stay full.
-        columns === 6 && (hasArv ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"),
+        // 8 slots (6 cards + equity + max offer, or 6 + a two-column max offer) → 4 per row on wide screens.
+        columns === 6 && (maxOffer !== undefined ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"),
       )}
     >
       <MetricCard
@@ -81,7 +92,25 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
           tone={tone("equity", toneFor(a.equityCreated))}
           sub={sub("equity", "ARV − (price + closing + rehab)")}
           metric={METRICS.equityCreated}
-          className={cn(columns !== 3 && "col-span-2")}
+          className={cn(columns !== 3 && maxOffer === undefined && "col-span-2")}
+        />
+      )}
+      {maxOffer !== undefined && (
+        <MetricCard
+          label="Max offer price"
+          value={maxOffer ? (maxOffer.price ? money(maxOffer.price) : "Not reachable") : "—"}
+          tone={!maxOffer?.price ? "muted" : a.purchasePrice.lte(maxOffer.price) ? "positive" : "negative"}
+          sub={
+            !maxOffer
+              ? "Turn on a goal under Max offer price"
+              : !maxOffer.price
+                ? `No price meets your ${maxOffer.label.toLowerCase()} goal`
+                : a.purchasePrice.lte(maxOffer.price)
+                  ? `Price is ${money(maxOffer.price.minus(a.purchasePrice))} under · meets all goals`
+                  : `Price is ${money(a.purchasePrice.minus(maxOffer.price))} over · ${maxOffer.label.toLowerCase()} sets it`
+          }
+          metric={METRICS.maxOffer}
+          className={cn(columns !== 3 && !hasArv && "col-span-2")}
         />
       )}
     </div>

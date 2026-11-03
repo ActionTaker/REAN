@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { SectionNav } from "./section-nav";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
+import { bindingMaxOffer, cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
 import { saveOfferGoals, saveStrategyGoals } from "@/app/actions/properties";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { analyzeBrrrr, analyzeDeal, analyzeFlip, dec, formatCurrency, type InvestmentCriteria } from "@/lib/finance";
@@ -80,6 +80,7 @@ function BuyHoldAnalysis({
   const savedGoals = useMemo(() => resolveOfferGoals(record.offerGoals, criteria), [record.offerGoals, criteria]);
   const [goals, setGoals] = useState<OfferGoals>(savedGoals);
   const { checks, rating } = useMemo(() => rateAgainstGoals(a, goals), [a, goals]);
+  const maxOffer = useMemo(() => bindingMaxOffer(recordToInputs(record), goals), [record, goals]);
   const pct = (s: string) => `${trimZeros(s)}%`;
 
   const acquisition = (
@@ -110,7 +111,7 @@ function BuyHoldAnalysis({
         cashFlowNote={!cashFlowRequired(goals) && a.monthlyCashFlow.isNegative()}
         footer="Goals for this deal are set under Max offer price below."
       />
-      <KeyMetrics a={a} columns={6} checks={checks} />
+      <KeyMetrics a={a} columns={6} checks={checks} maxOffer={maxOffer} />
 
       {acquisitionFirst ? (
         // DOM order = reading/print order; on wide screens the cash flow statement spans both rows on the right.

@@ -1,9 +1,13 @@
 import {
+  D,
   dec,
   formatCurrency,
+  maxPriceFor,
   pct,
   rateDeal,
+  seventyPercentMax,
   type CriteriaCheck,
+  type DealInputs,
   type DealAnalysis,
   type DealRating,
   type InvestmentCriteria,
@@ -171,4 +175,30 @@ export function cashFlowRequired(goals: OfferGoals): boolean {
 export function rateAgainstGoals(a: DealAnalysis, goals: OfferGoals): { checks: CriteriaCheck[]; rating: DealRating } {
   const checks = evaluateGoals(a, goals);
   return { checks, rating: rateDeal(a, checks, { cashFlowRequired: cashFlowRequired(goals) }) };
+}
+
+/**
+ * The highest price that meets every goal turned on for this deal, and which goal sets it.
+ * Same search as the Max offer price table (goals that can't be checked are skipped).
+ * price null = no price meets that goal. Null overall when no goal can be checked.
+ */
+export function bindingMaxOffer(inputs: DealInputs, goals: OfferGoals): { price: D | null; label: string } | null {
+  const hasArv = dec(inputs.afterRepairValue).gt(0);
+  const opts = goals.options ?? DEFAULT_OFFER_OPTIONS;
+  let best: { price: D | null; label: string } | null = null;
+  for (const g of OFFER_GOALS) {
+    if (!goals[g.key].enabled || (g.needsArv && !hasArv) || (g.key === "dscr" && inputs.isCashPurchase)) continue;
+    let price: D | null;
+    if (g.key === "seventy") {
+      const m = seventyPercentMax(inputs);
+      price = m && m.gt(0) ? m.div(500).floor().times(500) : null;
+    } else {
+      const t = parseTarget(goals[g.key].target);
+      if (!t) continue;
+      price = maxPriceFor(inputs, toPriceGoal(g.key, t), opts).price;
+    }
+    if (!best || price === null || (best.price !== null && price.lt(best.price))) best = { price, label: g.label };
+    if (best.price === null) break;
+  }
+  return best;
 }

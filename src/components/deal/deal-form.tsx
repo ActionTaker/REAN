@@ -41,7 +41,7 @@ import { resolveStrategyInputs, toEngineInputs, type SavedStrategyInputs, type S
 import { CompsArvSheet } from "./comps-arv-sheet";
 import { emptyArvAnalysis, type ArvAnalysis } from "@/lib/property-data/arv-analysis";
 import { perUnitSubject } from "@/lib/property-data/comps-arv";
-import { cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
+import { bindingMaxOffer, cashFlowRequired, rateAgainstGoals, resolveOfferGoals, type OfferGoals } from "@/lib/offer-goals";
 import { buildRehabPlan, regionalFactor, rehabTotals, type RehabPlan } from "@/lib/estimates/rehab";
 import { suggestAduRent } from "@/lib/finance/adu";
 import { defaultAduInputs, runAdu, type SavedAduInputs } from "@/lib/adu";
@@ -93,6 +93,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
   // Rated against this deal's own goals (set in Max offer price below).
   const offerGoals = useMemo(() => resolveOfferGoals(values.offerGoals as OfferGoals | null, criteria), [values.offerGoals, criteria]);
   const { checks: holdChecks, rating: holdRating } = useMemo(() => rateAgainstGoals(analysis, offerGoals), [analysis, offerGoals]);
+  const holdMaxOffer = useMemo(() => (dec(liveInputs.purchasePrice as string).gt(0) ? bindingMaxOffer(liveInputs, offerGoals) : null), [liveInputs, offerGoals]);
 
   // ── Strategy (Buy & Hold / BRRRR / Flip) ──
   const strategy = ((values.strategy as StrategyValue | undefined) ?? "BUY_HOLD") as StrategyValue;
@@ -810,7 +811,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
             <TabsTrigger value="longterm">Long-term</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="mt-3">
-            <KeyMetrics a={analysis} columns={2} checks={holdChecks} />
+            <KeyMetrics a={analysis} columns={2} checks={holdChecks} maxOffer={holdMaxOffer} />
           </TabsContent>
           <TabsContent value="cashflow" className="mt-3 rounded-xl border bg-card p-2 shadow-xs">
             <CashFlowStatement a={analysis} />
