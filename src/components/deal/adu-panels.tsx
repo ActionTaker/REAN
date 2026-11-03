@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { D, dec, formatCurrency, formatPercent, formatRatio, type DealAnalysis } from "@/lib/finance";
-import { ADU_TYPES, compareWithAdu, defaultAduCostPerSqft, type AduScenarioColumn, type AduType } from "@/lib/finance/adu";
-import type { RunAduResult, SavedAduInputs } from "@/lib/adu";
+import { ADU_TYPES, compareWithAdu, defaultAduCostPerSqft, type AduScenarioColumn, type AduType, type AduValuationMethod } from "@/lib/finance/adu";
+import { defaultAduValuation, type RunAduResult, type SavedAduInputs, type SavedAduValuation } from "@/lib/adu";
 import { parseTarget, type OfferGoals } from "@/lib/offer-goals";
 import { NumberInput } from "./number-input";
 
@@ -18,6 +18,25 @@ function UseLink({ onClick, children }: { onClick: () => void; children: React.R
     <button type="button" onClick={onClick} className="font-medium text-foreground underline underline-offset-2">
       {children}
     </button>
+  );
+}
+
+const VALUATION_METHODS: { value: AduValuationMethod; label: string; description: string }[] = [
+  { value: "lower", label: "Lower of two", description: "Uses whichever is lower: the rent-based value or the $/sq ft value. The safe default." },
+  { value: "income", label: "By rent", description: "Yearly rent profit ÷ cap rate — what an investor would pay for that income." },
+  { value: "ppsf", label: "By $/sq ft", description: "Area $/sq ft × ADU size × a discount — closer to how appraisers credit an ADU." },
+  { value: "manual", label: "My number", description: "A value you were quoted by an appraiser or agent." },
+];
+
+function ValuationLine({ label, value, used }: { label: string; value: D | null; used: boolean }) {
+  return (
+    <div className={cn("flex justify-between gap-3", used ? "font-semibold text-foreground" : "text-muted-foreground")}>
+      <span>
+        {label}
+        {used && " · used"}
+      </span>
+      <span className="num">{value ? formatCurrency(value) : "—"}</span>
+    </div>
   );
 }
 
@@ -78,6 +97,8 @@ export function AduSection({
 }) {
   const set = <K extends keyof SavedAduInputs>(k: K, v: SavedAduInputs[K]) => value && onChange({ ...value, [k]: v });
   const costEstimate = value ? defaultAduCostPerSqft(value.type, costIndex) : null;
+  const valuation = value?.valuation ?? defaultAduValuation();
+  const setValuation = (patch: Partial<SavedAduValuation>) => value && onChange({ ...value, valuation: { ...valuation, ...patch } });
   return (
     <Card className="gap-4">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -271,26 +292,96 @@ export function AduSection({
                     aria-label="ADU rent"
                   />
                 </InputRow>
-                <InputRow
-                  label="Cap rate"
-                  explain="Used to value the extra rent: yearly profit ÷ cap rate. Lower rate → higher value."
-                  hint={
-                    value.capRate
-                      ? "Your cap rate"
-                      : result && dealCapRate && !result.capRateUsed.eq(dealCapRate)
-                        ? `Blank → this deal's ${formatPercent(dealCapRate)}, kept within 5–12% → ${formatPercent(result.capRateUsed)}`
-                        : `Blank → this deal's ${formatPercent(dealCapRate)}`
-                  }
-                >
-                  <NumberInput
-                    suffix="%"
-                    placeholder={result ? result.capRateUsed.times(100).toDecimalPlaces(2).toString() : "6"}
-                    value={value.capRate}
-                    onChange={(e) => set("capRate", e.target.value)}
-                    aria-label="Cap rate for valuing the ADU"
-                  />
-                </InputRow>
               </div>
+              <div className="space-y-2 border-t pt-3">
+                <div>
+                  <div className="text-sm font-medium">How to value it</div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Investors value rent; appraisers value what similar homes sell for. Starting with the lower of the two is the safe choice.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-1 rounded-lg border p-0.5" role="radiogroup" aria-label="How to value the ADU">
+                  {VALUATION_METHODS.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={valuation.method === m.value}
+                      title={m.description}
+                      onClick={() => setValuation({ method: m.value })}
+                      className={cn(
+                        "rounded-md px-2 py-1.5 text-xs",
+                        valuation.method === m.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] leading-snug text-muted-foreground">{VALUATION_METHODS.find((m) => m.value === valuation.method)?.description}</p>
+              </div>
+              <div className="divide-y">
+                {(valuation.method === "income" || valuation.method === "lower") && (
+                  <InputRow
+                    label="Cap rate"
+                    explain="Yearly rent profit ÷ cap rate. Lower rate → higher value."
+                    hint={
+                      value.capRate
+                        ? "Your cap rate"
+                        : result && dealCapRate && !result.capRateUsed.eq(dealCapRate)
+                          ? `Blank → this deal's ${formatPercent(dealCapRate)}, kept within 5–12% → ${formatPercent(result.capRateUsed)}`
+                          : `Blank → this deal's ${formatPercent(dealCapRate)}`
+                    }
+                  >
+                    <NumberInput
+                      suffix="%"
+                      placeholder={result ? result.capRateUsed.times(100).toDecimalPlaces(2).toString() : "6"}
+                      value={value.capRate}
+                      onChange={(e) => set("capRate", e.target.value)}
+                      aria-label="Cap rate for valuing the ADU"
+                    />
+                  </InputRow>
+                )}
+                {(valuation.method === "ppsf" || valuation.method === "lower") && (
+                  <>
+                    <InputRow
+                      label="Area value per sq ft"
+                      explain="What homes like this sell for per sq ft."
+                      hint={
+                        valuation.ppsf
+                          ? "Your number"
+                          : result?.basis.ppsf
+                            ? `Blank → this deal's ${result.basis.ppsfSource === "arv" ? "ARV" : "price"} ÷ house size`
+                            : "Enter the ARV and house size, or type a $/sq ft"
+                      }
+                    >
+                      <NumberInput
+                        prefix="$"
+                        suffix="/sq ft"
+                        placeholder={result?.basis.ppsf && result.basis.ppsfSource !== "custom" ? result.basis.ppsf.toDecimalPlaces(0).toString() : ""}
+                        value={valuation.ppsf}
+                        onChange={(e) => setValuation({ ppsf: e.target.value })}
+                        aria-label="Area value per square foot"
+                      />
+                    </InputRow>
+                    <InputRow label="ADU counts for" explain="Share of that $/sq ft an appraiser credits a separate small unit. 50–75% is typical.">
+                      <NumberInput suffix="%" value={valuation.discountPct} onChange={(e) => setValuation({ discountPct: e.target.value })} aria-label="ADU share of area value per square foot" />
+                    </InputRow>
+                  </>
+                )}
+                {valuation.method === "manual" && (
+                  <InputRow label="Value it adds" explain="From an appraiser, agent or sales of homes with ADUs.">
+                    <NumberInput prefix="$" value={valuation.manualValue} onChange={(e) => setValuation({ manualValue: e.target.value })} aria-label="Value the ADU adds" />
+                  </InputRow>
+                )}
+              </div>
+              {result && (
+                <div className="space-y-1 rounded-md bg-muted/50 px-3 py-2 text-[11px]">
+                  <ValuationLine label="By rent (cap rate)" value={result.valuations.income} used={result.valuationUsed === "income"} />
+                  <ValuationLine label="By $/sq ft" value={result.valuations.ppsf} used={result.valuationUsed === "ppsf"} />
+                  {valuation.method === "manual" && <ValuationLine label="Your number" value={result.valuations.manual} used={result.valuationUsed === "manual"} />}
+                </div>
+              )}
               {result ? (
                 <div className="pt-2">
                   <ResultLine
@@ -316,7 +407,7 @@ export function AduSection({
           {result && (
             <div className="rounded-lg border p-4">
               <div className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">How these numbers are worked out</div>
-              <AduWorkings r={result} costPerSqft={value.costPerSqft} />
+              <AduWorkings r={result} costPerSqft={value.costPerSqft} squareFeet={value.squareFeet} />
             </div>
           )}
           <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -329,7 +420,25 @@ export function AduSection({
   );
 }
 
-const pctText = (v: string) => `${v.replace(/\.?0+$/, "") || "0"}%`;
+// Trim trailing zeros after a decimal point only ("8.50" → "8.5", "60" stays "60").
+const pctText = (v: string) => `${(v.includes(".") ? v.replace(/\.?0+$/, "") : v) || "0"}%`;
+
+/** One phrase for how the value added was found, e.g. "by $/sq ft ($312 × 60%)". */
+export function valuationPhrase(r: RunAduResult): string {
+  if (r.valuationUsed === "manual") return "at the value you entered";
+  if (r.valuationUsed === "ppsf") return `by $/sq ft (${r.basis.ppsf ? formatCurrency(r.basis.ppsf) : "—"} × ${pctText(r.basis.discountPct)})`;
+  return `by rent at a ${formatPercent(r.capRateUsed)} cap rate`;
+}
+
+/** The "Value added" line's explanation, with the numbers that produced it. */
+function valueBasis(r: RunAduResult, sqft?: string): string {
+  const b = r.basis;
+  const lower = r.valuations.ppsf ? ` Compare: rent-based ${formatCurrency(r.valuations.income)}, $/sq ft ${formatCurrency(r.valuations.ppsf)}.` : "";
+  if (r.valuationUsed === "manual") return "The value you entered (from an appraiser, agent or sales of homes with ADUs).";
+  if (r.valuationUsed === "ppsf")
+    return `${b.ppsf ? formatCurrency(b.ppsf) : "—"}/sq ft${b.ppsfSource === "custom" ? "" : ` (this deal's ${b.ppsfSource === "arv" ? "ARV" : "price"} ÷ house size)`} × ${sqft ?? "ADU"} sq ft × ${pctText(b.discountPct)} ADU credit.${lower}`;
+  return `12 × NOI before tax ${formatCurrency(r.preTaxNoi.minus(r.addedInsurance), { cents: true })} ÷ (cap ${formatPercent(r.capRateUsed)} + tax ${pctText(b.taxPct)}). The tax sits in the divisor because it's charged on the value the ADU adds.${lower}`;
+}
 
 function WorkRow({
   label,
@@ -371,11 +480,14 @@ function WorkRow({
 export function AduWorkings({
   r,
   costPerSqft,
+  squareFeet,
   extra,
 }: {
   r: RunAduResult;
   costPerSqft?: string;
-  /** Shown under value & equity (e.g. the build cost on the property page). */ extra?: React.ReactNode;
+  squareFeet?: string;
+  /** Shown under value & equity (e.g. the build cost on the property page). */
+  extra?: React.ReactNode;
 }) {
   const b = r.basis;
   const m = (v: D) => formatCurrency(v, { cents: true });
@@ -422,7 +534,7 @@ export function AduWorkings({
           <div className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Value and equity</div>
           <WorkRow
             label="Value added"
-            basis={`12 × NOI before tax ${formatCurrency(r.preTaxNoi.minus(r.addedInsurance), { cents: true })} ÷ (cap ${formatPercent(r.capRateUsed)} + tax ${pctText(b.taxPct)}). The tax sits in the divisor because it's charged on the value the ADU adds.`}
+            basis={valueBasis(r, squareFeet)}
             value={formatCurrency(r.valueAdded)}
           />
           <WorkRow label="− Total build cost" value={formatCurrency(r.totalCost)} />
@@ -587,7 +699,7 @@ export function AduComparison({ base, r, compact, targets = {} }: { base: DealAn
         </table>
       </div>
       <p className="text-[11px] leading-snug text-muted-foreground">
-        ADU only: {money(r.totalCost)} build{r.loanAmount.gt(0) ? ` (${money(r.loanAmount)} loan)` : ", all cash"}, valued at a {formatPercent(r.capRateUsed)} cap rate.{" "}
+        ADU only: {money(r.totalCost)} build{r.loanAmount.gt(0) ? ` (${money(r.loanAmount)} loan)` : ", all cash"}, valued {valuationPhrase(r)}.{" "}
         {r.breakEvenCostPerSqft ? (
           <>
             It adds equity if built for under <span className="num font-medium text-foreground">{formatCurrency(r.breakEvenCostPerSqft)}/sq ft</span>.
@@ -622,9 +734,7 @@ export function AduPanel({ r, s, stateCode, base, targets }: { r: RunAduResult; 
         <CardDescription className="text-xs">
           {t?.label} · {s.squareFeet} sq ft at ${s.costPerSqft}/sq ft
           {stateCode ? ` (${stateCode})` : ""} · {s.buildMonths}-month build ·{" "}
-          {s.financing.type === "loan" ? `${s.financing.financedPct}% financed at ${s.financing.rate}%` : "paid in cash"} · valued at a{" "}
-          {formatPercent(r.capRateUsed)} cap rate
-          {r.capRateSource === "deal" ? " (this deal's)" : ""}. Not included in the numbers above.
+          {s.financing.type === "loan" ? `${s.financing.financedPct}% financed at ${s.financing.rate}%` : "paid in cash"} · valued {valuationPhrase(r)}. Not included in the numbers above.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -632,6 +742,7 @@ export function AduPanel({ r, s, stateCode, base, targets }: { r: RunAduResult; 
         <AduWorkings
           r={r}
           costPerSqft={s.costPerSqft}
+          squareFeet={s.squareFeet}
           extra={
             <div>
               <div className="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Build cost</div>
@@ -645,9 +756,9 @@ export function AduPanel({ r, s, stateCode, base, targets }: { r: RunAduResult; 
           }
         />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Value added uses the income approach: the ADU&apos;s yearly NOI ÷ cap rate (the cap rate also absorbs the property tax on that value).
-          Appraisers often value ADUs from sold comps instead, which can be lower — especially where few sales have ADUs. Equity created = value added
-          − total build cost. Estimates, not guarantees.
+          Rent-based value = the ADU&apos;s yearly NOI ÷ cap rate (an investor&apos;s view). $/sq ft value = the area&apos;s $/sq ft × size × a discount,
+          closer to how appraisers credit an ADU — often lower where few sales have ADUs. Equity created = value added − total build cost. Estimates,
+          not guarantees.
         </p>
       </CardContent>
     </Card>

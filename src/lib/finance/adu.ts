@@ -33,7 +33,29 @@ export interface AduInputs {
   financing: { type: "cash" | "loan"; financedPct: DecimalLike; rate: DecimalLike; termYears: number };
   /** Months of construction with no ADU rent. */
   buildMonths: DecimalLike;
+  /** How the value the ADU adds is estimated. Default: the lower of the rent-based and $/sq ft-based values. */
+  valuation?: AduValuationInputs;
 }
+
+/**
+ * - income: the ADU's yearly NOI ÷ cap rate (an investor's view).
+ * - ppsf: the area's $/sq ft × ADU size × a discount (closer to how appraisers credit an ADU, which sells as part of the house).
+ * - manual: a value from an appraiser or agent.
+ * - lower: the lower of income and ppsf (conservative default).
+ */
+export type AduValuationMethod = "lower" | "income" | "ppsf" | "manual";
+
+export interface AduValuationInputs {
+  method: AduValuationMethod;
+  /** Market value per sq ft of homes like this one (e.g. ARV ÷ house size). */
+  ppsf: DecimalLike | null;
+  /** Share of that $/sq ft an ADU earns, % (default 60). */
+  discountPct: DecimalLike;
+  /** Value added you were quoted. */
+  manualValue: DecimalLike | null;
+}
+
+export const DEFAULT_ADU_DISCOUNT_PCT = "60";
 
 /** The host deal's numbers the ADU math needs. */
 export interface AduContext {
@@ -84,6 +106,10 @@ export interface AduAnalysis {
   combinedMonthlyCashFlow: D;
   /** Construction $/sq ft at which equity created is exactly zero (null if even $0/sq ft can't break even). */
   breakEvenCostPerSqft: D | null;
+  /** Every way of valuing it, for comparison (null when that method has no input). */
+  valuations: { income: D; ppsf: D | null; manual: D | null };
+  /** The method actually used ("lower" resolves to income or ppsf). */
+  valuationUsed: Exclude<AduValuationMethod, "lower">;
 }
 
 /** Insurance for the added structure, as % of its construction cost per year (rough). */
@@ -107,21 +133,44 @@ export function analyzeAdu(a: AduInputs, ctx: AduContext): AduAnalysis {
   const management = collected.times(pct(ctx.managementPercent));
   const operatingExpenses = maintenance.plus(capex).plus(management);
 
-  // Value first (income approach), then the property tax that value brings.
   // NOI before the added tax/insurance is what the market capitalizes; tax/insurance are then charged on it.
   const capRate = dec(ctx.capRate);
   const preTaxNoi = collected.minus(operatingExpenses);
   const addedInsurance = constructionCost.times(pct(ADU_INSURANCE_PCT)).div(TWELVE);
-  // Solve value = 12·(preTaxNoi − insurance − value·taxRate/12) / capRate  →  value = 12·(preTaxNoi − insurance) / (capRate + taxRate)
   const taxRate = pct(ctx.propertyTaxPct);
   const denom = capRate.plus(taxRate);
-  const valueAdded = denom.gt(0) ? D.max(preTaxNoi.minus(addedInsurance).times(TWELVE).div(denom), ZERO) : ZERO;
+  const sqft = dec(a.squareFeet);
+  const soft = dec(a.softCosts);
+
+  // Income approach — solve value = 12·(preTaxNoi − insurance − value·taxRate/12) / capRate  →  value = 12·(preTaxNoi − insurance) / (capRate + taxRate)
+  const incomeValue = denom.gt(0) ? D.max(preTaxNoi.minus(addedInsurance).times(TWELVE).div(denom), ZERO) : ZERO;
+  // $/sq ft approach — the area's $/sq ft × size × discount.
+  const v = a.valuation;
+  const ppsfIn = v?.ppsf != null ? dec(v.ppsf) : ZERO;
+  const ppsfValue = ppsfIn.gt(0) && sqft.gt(0) ? ppsfIn.times(sqft).times(pct(v?.discountPct ?? DEFAULT_ADU_DISCOUNT_PCT)) : null;
+  const manualIn = v?.manualValue != null ? dec(v.manualValue) : ZERO;
+  const manualValue = manualIn.gt(0) ? manualIn : null;
+
+  const method = v?.method ?? "lower";
+  let valuationUsed: Exclude<AduValuationMethod, "lower"> = "income";
+  if (method === "manual" && manualValue) valuationUsed = "manual";
+  else if (method === "ppsf" && ppsfValue) valuationUsed = "ppsf";
+  else if (method === "lower" && ppsfValue && ppsfValue.lt(incomeValue)) valuationUsed = "ppsf";
+  const valueAdded = valuationUsed === "manual" ? manualValue! : valuationUsed === "ppsf" ? ppsfValue! : incomeValue;
   const addedPropertyTax = valueAdded.times(taxRate).div(TWELVE);
 
-  // Equity = 0 ⇔ (12·preTaxNoi − c·sqft·k) / denom = c·sqft + soft, k = insurance rate  →  c = (12·preTaxNoi − soft·denom) / (sqft·(denom + k))
-  const sqft = dec(a.squareFeet);
-  const k = pct(ADU_INSURANCE_PCT);
-  const breakEven = denom.gt(0) && sqft.gt(0) ? preTaxNoi.times(TWELVE).minus(dec(a.softCosts).times(denom)).div(sqft.times(denom.plus(k))) : null;
+  // Build cost per sq ft at which equity created is zero.
+  let breakEven: D | null = null;
+  if (sqft.gt(0)) {
+    if (valuationUsed === "income") {
+      // (12·preTaxNoi − c·sqft·k) / denom = c·sqft + soft, k = insurance rate  →  c = (12·preTaxNoi − soft·denom) / (sqft·(denom + k))
+      const k = pct(ADU_INSURANCE_PCT);
+      breakEven = denom.gt(0) ? preTaxNoi.times(TWELVE).minus(soft.times(denom)).div(sqft.times(denom.plus(k))) : null;
+    } else {
+      // Value doesn't depend on the build cost: c·sqft + soft = value.
+      breakEven = valueAdded.minus(soft).div(sqft);
+    }
+  }
 
   const monthlyNOI = preTaxNoi.minus(addedInsurance).minus(addedPropertyTax);
   const monthlyCashFlow = monthlyNOI.minus(payment);
@@ -151,6 +200,8 @@ export function analyzeAdu(a: AduInputs, ctx: AduContext): AduAnalysis {
     returnOnCost: safeDiv(valueAdded.minus(totalCost), totalCost),
     combinedMonthlyCashFlow: dec(ctx.baseMonthlyCashFlow).plus(monthlyCashFlow),
     breakEvenCostPerSqft: breakEven && breakEven.gt(0) ? breakEven : null,
+    valuations: { income: incomeValue, ppsf: ppsfValue, manual: manualValue },
+    valuationUsed,
   };
 }
 

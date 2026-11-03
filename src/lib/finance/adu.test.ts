@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { analyzeAdu, defaultAduCostPerSqft, suggestAduRent, type AduContext, type AduInputs } from "./adu";
+import { D, dec } from "./decimal";
 
 const adu: AduInputs = {
   type: "detached", squareFeet: 600, costPerSqft: 300, softCosts: 30_000, monthlyRent: 2_000,
@@ -70,4 +71,25 @@ test("without / ADU only / together columns add up", async () => {
   assert.equal(c.together.equityCreated!.toFixed(2), base.equityCreated!.plus(a.equityCreated).toFixed(2));
   assert.equal(c.together.cashOnCash!.toFixed(6), c.together.monthlyCashFlow.times(12).div(c.together.cashInvested).toFixed(6));
   assert.equal(c.together.dscr!.toFixed(6), base.annualNOI.plus(a.monthlyNOI.times(12)).div(base.annualDebtService.plus(a.monthlyPayment.times(12))).toFixed(6));
+});
+
+test("valuation methods: $/sq ft, lower of two, manual", () => {
+  const income = analyzeAdu(adu, ctx);
+  // 600 sq ft × $400/sq ft × 60% = $144,000
+  const ppsf = analyzeAdu({ ...adu, valuation: { method: "ppsf", ppsf: "400", discountPct: "60", manualValue: null } }, ctx);
+  assert.equal(ppsf.valueAdded.toString(), "144000");
+  assert.equal(ppsf.valuationUsed, "ppsf");
+  // Tax follows the value used: 144,000 × tax% ÷ 12
+  assert.equal(ppsf.addedPropertyTax.toFixed(2), dec(144000).times(dec(ctx.propertyTaxPct).div(100)).div(12).toFixed(2));
+  assert.equal(ppsf.equityCreated.toFixed(2), dec(144000).minus(ppsf.totalCost).toFixed(2));
+  // Break-even with a fixed value: (value − soft costs) ÷ size
+  assert.equal(ppsf.breakEvenCostPerSqft!.toFixed(2), dec(144000).minus(dec(adu.softCosts)).div(600).toFixed(2));
+  // Lower of the two picks whichever is smaller.
+  const lower = analyzeAdu({ ...adu, valuation: { method: "lower", ppsf: "400", discountPct: "60", manualValue: null } }, ctx);
+  assert.equal(lower.valueAdded.toString(), D.min(income.valueAdded, dec(144000)).toString());
+  // Manual uses the quoted number; without one it falls back to the rent-based value.
+  const manual = analyzeAdu({ ...adu, valuation: { method: "manual", ppsf: null, discountPct: "60", manualValue: "200000" } }, ctx);
+  assert.equal(manual.valueAdded.toString(), "200000");
+  const noQuote = analyzeAdu({ ...adu, valuation: { method: "manual", ppsf: null, discountPct: "60", manualValue: "" } }, ctx);
+  assert.equal(noQuote.valuationUsed, "income");
 });

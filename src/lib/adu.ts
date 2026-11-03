@@ -1,5 +1,5 @@
-import { ADU_INSURANCE_PCT, ADU_TYPES, analyzeAdu, defaultAduCostPerSqft, type AduAnalysis, type AduInputs, type AduType } from "@/lib/finance/adu";
-import { D, dec, pct } from "@/lib/finance/decimal";
+import { ADU_INSURANCE_PCT, ADU_TYPES, DEFAULT_ADU_DISCOUNT_PCT, analyzeAdu, type AduValuationMethod, defaultAduCostPerSqft, type AduAnalysis, type AduInputs, type AduType } from "@/lib/finance/adu";
+import { D, ZERO, dec, pct } from "@/lib/finance/decimal";
 import type { DealAnalysis, DealInputs } from "@/lib/finance/types";
 import { NATIONAL_PROPERTY_TAX_PCT, PROPERTY_TAX_PCT } from "@/lib/estimates/state-data";
 
@@ -14,7 +14,19 @@ export interface SavedAduInputs {
   /** Blank = value the ADU at the deal's own cap rate. */
   capRate: string;
   financing: { type: "cash" | "loan"; financedPct: string; rate: string; termYears: string };
+  /** How the value it adds is estimated. Missing on older saves → the lower of rent-based and $/sq ft-based. */
+  valuation?: SavedAduValuation;
 }
+
+export interface SavedAduValuation {
+  method: AduValuationMethod;
+  /** Blank = this deal's ARV (or price) ÷ house size. */
+  ppsf: string;
+  discountPct: string;
+  manualValue: string;
+}
+
+export const defaultAduValuation = (): SavedAduValuation => ({ method: "lower", ppsf: "", discountPct: DEFAULT_ADU_DISCOUNT_PCT, manualValue: "" });
 
 export function defaultAduInputs(costIndex: string, rentSuggestion: string | null): SavedAduInputs {
   return {
@@ -26,10 +38,11 @@ export function defaultAduInputs(costIndex: string, rentSuggestion: string | nul
     buildMonths: "8",
     capRate: "",
     financing: { type: "cash", financedPct: "80", rate: "8.5", termYears: "30" },
+    valuation: defaultAduValuation(),
   };
 }
 
-export function toEngineAdu(s: SavedAduInputs): AduInputs {
+export function toEngineAdu(s: SavedAduInputs, autoPpsf: D | null = null): AduInputs {
   const n = (v: string) => (v ?? "").replace(/[,$%\s]/g, "") || "0";
   return {
     type: s.type,
@@ -44,6 +57,16 @@ export function toEngineAdu(s: SavedAduInputs): AduInputs {
       rate: n(s.financing.rate),
       termYears: parseInt(s.financing.termYears, 10) || 30,
     },
+    valuation: (() => {
+      const v = s.valuation ?? defaultAduValuation();
+      const custom = n(v.ppsf);
+      return {
+        method: v.method,
+        ppsf: dec(custom).gt(0) ? custom : (autoPpsf?.toString() ?? null),
+        discountPct: n(v.discountPct) === "0" && !v.discountPct ? DEFAULT_ADU_DISCOUNT_PCT : n(v.discountPct),
+        manualValue: n(v.manualValue),
+      };
+    })(),
   };
 }
 
@@ -67,6 +90,10 @@ export interface AduBasis {
   taxState: string | null;
   insurancePct: string;
   loan: { amount: D; rate: string; termYears: number } | null;
+  /** $/sq ft used for the $/sq ft valuation, and where it came from. */
+  ppsf: D | null;
+  ppsfSource: "custom" | "arv" | "price" | null;
+  discountPct: string;
 }
 
 export type RunAduResult = AduAnalysis & { capRateUsed: D; capRateSource: "custom" | "deal" | "default"; basis: AduBasis };
@@ -74,7 +101,13 @@ export type RunAduResult = AduAnalysis & { capRateUsed: D; capRateSource: "custo
 export function runAdu(s: SavedAduInputs, deal: DealInputs, analysis: DealAnalysis, state: string | null | undefined): RunAduResult {
   const cap = aduCapRate(s, analysis.capRate);
   const code = state?.toUpperCase() ?? "";
-  const engine = toEngineAdu(s);
+  // The area's $/sq ft: this deal's ARV (else price) ÷ house size, unless the user typed one.
+  const houseSqft = deal.squareFeet ? dec(deal.squareFeet) : ZERO;
+  const arv = dec(deal.afterRepairValue);
+  const basisValue = arv.gt(0) ? arv : dec(deal.purchasePrice);
+  const autoPpsf = houseSqft.gt(0) && basisValue.gt(0) ? basisValue.div(houseSqft) : null;
+  const engine = toEngineAdu(s, autoPpsf);
+  const customPpsf = s.valuation && dec(s.valuation.ppsf.replace(/[,$\s]/g, "") || "0").gt(0);
   const r = analyzeAdu(engine, {
     vacancyRate: deal.vacancyRate,
     maintenancePercent: deal.maintenancePercent,
@@ -98,6 +131,9 @@ export function runAdu(s: SavedAduInputs, deal: DealInputs, analysis: DealAnalys
       taxState: PROPERTY_TAX_PCT[code] ? code : null,
       insurancePct: ADU_INSURANCE_PCT,
       loan: r.loanAmount.gt(0) ? { amount: r.loanAmount, rate: str(engine.financing.rate), termYears: engine.financing.termYears } : null,
+      ppsf: engine.valuation?.ppsf ? dec(engine.valuation.ppsf) : null,
+      ppsfSource: customPpsf ? "custom" : autoPpsf ? (arv.gt(0) ? "arv" : "price") : null,
+      discountPct: str(engine.valuation?.discountPct ?? DEFAULT_ADU_DISCOUNT_PCT),
     },
   };
 }

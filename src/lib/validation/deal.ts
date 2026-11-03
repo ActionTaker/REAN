@@ -107,6 +107,7 @@ export const aduInputsSchema = z.object({
   buildMonths: num,
   capRate: num,
   financing: z.object({ type: z.enum(["cash", "loan"]), financedPct: num, rate: num, termYears: num }),
+  valuation: z.object({ method: z.enum(["lower", "income", "ppsf", "manual"]), ppsf: money0, discountPct: num, manualValue: money0 }).optional(),
 });
 
 /** Rent roll: one row per unit. Lenient strings; blank rent counts as 0. */
