@@ -32,6 +32,8 @@ import {
 import { formatAddress, recordToInputs, type PropertyRecord } from "@/lib/property-mapping";
 import { analyzeRecords, type AnalyzedProperty } from "@/lib/analyze-record";
 import { StrategyBadge } from "@/components/common/strategy-badge";
+import { DEFAULT_TAX_ASSUMPTIONS, analyzeAfterTax, type TaxAssumptions } from "@/lib/finance/tax";
+import { runAdu } from "@/lib/adu";
 import { cn } from "@/lib/utils";
 
 interface Row {
@@ -106,6 +108,15 @@ const STRATEGY_ROWS: { label: string; get: (x: AnalyzedProperty) => D | null; fo
   { label: "Flip · annualized ROI", get: (x) => x.flip?.annualizedRoi ?? null, format: pct, better: "high" },
 ];
 
+/** After-tax (Buy & Hold) and ADU scenario rows; blank where they don't apply. */
+function extraRows(tax: TaxAssumptions): { label: string; get: (x: AnalyzedProperty) => D | null; format: (v: D | null) => string; better?: "high" | "low" }[] {
+  return [
+    { label: "After-tax cash flow / mo (yr 1)", get: (x) => (x.strategy === "BUY_HOLD" ? analyzeAfterTax(x.analysis, tax).yearOne.afterTaxCashFlow.div(12) : null), format: money, better: "high" },
+    { label: "ADU · equity created", get: (x) => (x.record.aduInputs && x.strategy !== "FLIP" ? runAdu(x.record.aduInputs, recordToInputs(x.record), x.analysis, x.record.state).equityCreated : null), format: money, better: "high" },
+    { label: "ADU · cash flow / mo", get: (x) => (x.record.aduInputs && x.strategy !== "FLIP" ? runAdu(x.record.aduInputs, recordToInputs(x.record), x.analysis, x.record.state).monthlyCashFlow : null), format: money, better: "high" },
+  ];
+}
+
 function bestIndex(values: (D | null)[], better?: "high" | "low"): number | null {
   if (!better) return null;
   let best: number | null = null;
@@ -120,7 +131,17 @@ function bestIndex(values: (D | null)[], better?: "high" | "low"): number | null
   return best;
 }
 
-export function CompareView({ properties, selectedIds, criteria }: { properties: PropertyRecord[]; selectedIds: string[]; criteria: InvestmentCriteria }) {
+export function CompareView({
+  properties,
+  selectedIds,
+  criteria,
+  tax = DEFAULT_TAX_ASSUMPTIONS,
+}: {
+  properties: PropertyRecord[];
+  selectedIds: string[];
+  criteria: InvestmentCriteria;
+  tax?: TaxAssumptions;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const selected = useMemo(
@@ -246,6 +267,10 @@ export function CompareView({ properties, selectedIds, criteria }: { properties:
                       })
                     } count={analyses.length} />
                 ))}
+                {(() => {
+                  const rows = extraRows(tax).filter((row) => analyses.some(({ x }) => row.get(x) !== null));
+                  return rows.length > 0 ? <GroupRows title="After tax & ADU" rows={rows} values={(row) => analyses.map(({ x }) => row.get(x))} count={analyses.length} /> : null;
+                })()}
                 {hasStrategyDeals && (
                   <GroupRows title="BRRRR & Flip" rows={STRATEGY_ROWS} values={(row) => analyses.map(({ x }) => row.get(x))} count={analyses.length} />
                 )}

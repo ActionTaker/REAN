@@ -4,6 +4,7 @@ import { listProperties } from "@/lib/data/properties";
 import { getSettings } from "@/lib/data/settings";
 import { MAX_COMPARE } from "@/lib/constants";
 import { CompareView } from "./compare-view";
+import { taxAssumptionsFrom } from "@/lib/new-deal-defaults";
 
 export const metadata: Metadata = { title: "Deal Comparison" };
 
@@ -19,7 +20,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-6">
       <PageHeader title="Deal Comparison" description={`Line up to ${MAX_COMPARE} properties. The strongest value in each row is highlighted.`} />
-      <CompareView properties={all} selectedIds={initial} criteria={settings} />
+      <CompareView properties={all} selectedIds={initial} criteria={settings} tax={taxAssumptionsFrom(settings)} />
     </div>
   );
 }
