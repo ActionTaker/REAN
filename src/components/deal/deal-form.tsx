@@ -251,6 +251,26 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
     return e?.message;
   };
 
+  /** One line of the "What you pay" stack: label + explanation on the left, the amount on the right. */
+  const costRow = (n: Name, step: string, label: string, explain: string, opts: { hint?: React.ReactNode; disabled?: boolean; below?: React.ReactNode } = {}) => (
+    <div className="space-y-2 py-3 first:pt-0">
+      <div className="grid grid-cols-[1fr_minmax(0,9.5rem)] items-start gap-3">
+        <div className="flex gap-2">
+          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">{step}</span>
+          <div className="min-w-0">
+            <Label htmlFor={n} className="text-sm leading-6">{label}</Label>
+            <p className="text-[11px] leading-snug text-muted-foreground">{explain}</p>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <NumberInput id={n} prefix="$" disabled={opts.disabled} aria-invalid={!!err(n)} {...register(n)} />
+          {err(n) ? <p className="text-xs text-destructive">{err(n)}</p> : opts.hint ? <div className="text-[11px] leading-snug text-muted-foreground">{opts.hint}</div> : null}
+        </div>
+      </div>
+      {opts.below}
+    </div>
+  );
+
   const num = (n: Name, label: string, opts: { prefix?: string; suffix?: string; hint?: React.ReactNode; disabled?: boolean; className?: string } = {}) => (
     <div className={cn("space-y-1.5", opts.className)}>
       <Label htmlFor={n} className={cn("text-xs", opts.disabled && "opacity-50")}>{label}</Label>
@@ -379,33 +399,47 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
           </div>
         </Section>
 
-        <Section title="Purchase" description="Your all-in acquisition cost and, optionally, the value after repairs.">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {num("purchasePrice", "Purchase price *", { prefix: "$" })}
-            {num("closingCosts", "Closing costs", { prefix: "$", hint: <EstimateHint est={closingEst} auto={closingAuto} fallback="Enter price & state to estimate" /> })}
-            {num("rehabCosts", "Rehab / repairs", {
-              prefix: "$",
-              disabled: !!rehabPlan,
-              hint: rehabPlan ? "From the rehab scope below" : "Pick a scope below to estimate",
-            })}
-            {num("afterRepairValue", "After-repair value", {
-              prefix: "$",
-              hint:
-                (marketData?.value?.comparables.length ?? 0) > 0 ? (
-                  <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("sale")}>
-                    <ListChecks /> Review comps & ARV
-                  </Button>
-                ) : strategy !== "BUY_HOLD" && !analysis.afterRepairValue ? (
-                  <span className="text-caution">Needed for {strategy === "BRRRR" ? "the refinance" : "the sale"}</span>
-                ) : analysis.equityCreated ? (
-                  "Calculation shown below"
-                ) : (
-                  "Optional — look up the address for comps"
-                ),
-            })}
+        <Section title="Purchase" description="What the deal costs you, and what the property is worth once the work is done.">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+            {/* Left: the three costs that add up to your all-in cost. */}
+            <div className="rounded-lg border p-4">
+              <div className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">What you pay</div>
+              <div className="divide-y">
+                {costRow("purchasePrice", "1", "Purchase price", "The price you agree with the seller.")}
+                {costRow("closingCosts", "2", "Closing costs", "Title, escrow, lender and transfer fees at closing.", {
+                  hint: <EstimateHint est={closingEst} auto={closingAuto} fallback="Enter price & state to estimate" />,
+                })}
+                {costRow("rehabCosts", "3", "Rehab / repairs", "Work needed before renting or selling. Pick a level below to estimate it.", {
+                  disabled: !!rehabPlan,
+                  hint: rehabPlan ? "Set by the level below" : undefined,
+                  below: <RehabEstimator plan={rehabPlan} ctx={rehabCtx} onChange={setRehabPlan} bare />,
+                })}
+              </div>
+              <div className="mt-1 flex items-baseline justify-between gap-3 border-t-2 border-foreground/80 pt-3">
+                <span className="text-sm font-semibold">All-in cost <span className="font-normal text-muted-foreground">(1 + 2 + 3)</span></span>
+                <span className="num text-lg font-semibold">{formatCurrency(analysis.totalProjectCost)}</span>
+              </div>
+            </div>
+
+            {/* Right: value after repairs, and what it means. */}
+            <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+              <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">What it&apos;s worth after repairs</div>
+              {num("afterRepairValue", "After-repair value (ARV)", {
+                prefix: "$",
+                hint:
+                  (marketData?.value?.comparables.length ?? 0) > 0 ? (
+                    <Button type="button" variant="outline" size="sm" className="mt-1 border-series-1/40 text-series-1 hover:text-series-1" onClick={() => setCompsOpen("sale")}>
+                      <ListChecks /> Review comps & ARV
+                    </Button>
+                  ) : strategy !== "BUY_HOLD" && !analysis.afterRepairValue ? (
+                    <span className="text-caution">Needed for {strategy === "BRRRR" ? "the refinance" : "the sale"}</span>
+                  ) : (
+                    "What it should sell for once the rehab is done. Optional for Buy & Hold."
+                  ),
+              })}
+              <ArvBreakdown a={analysis} />
+            </div>
           </div>
-          <RehabEstimator plan={rehabPlan} ctx={rehabCtx} onChange={setRehabPlan} />
-          <ArvBreakdown a={analysis} className="mt-4" />
         </Section>
 
         {strategy === "BUY_HOLD" ? (

@@ -30,10 +30,16 @@ export function RehabEstimator({
   plan,
   ctx,
   onChange,
+  amountField,
+  bare,
 }: {
   plan: RehabPlan | null;
   ctx: RehabContext;
   onChange: (plan: RehabPlan | null) => void;
+  /** The rehab total input, shown beside the scope picker so the two read as one control. */
+  amountField?: React.ReactNode;
+  /** Just the level picker and its details, for use inside another row that owns the label and amount. */
+  bare?: boolean;
 }) {
   const [open, setOpen] = useState(!!plan?.customized);
   const totals = plan ? rehabTotals({ items: plan.items.map((i) => ({ ...i, amount: clean(i.amount) })), contingencyPct: clean(plan.contingencyPct) }) : null;
@@ -53,43 +59,8 @@ export function RehabEstimator({
     onChange({ ...plan, items, customized: true });
   };
 
-  return (
-    <div className="mt-4 rounded-lg border">
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <Hammer className="size-3.5 text-muted-foreground" /> Rehab scope
-        </div>
-        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Rehab scope">
-          {[{ value: null, label: "Manual" }, ...REHAB_SCOPES].map((s) => {
-            const active = (plan?.scope ?? null) === s.value;
-            return (
-              <button
-                key={s.label}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                title={"description" in s ? s.description : "Type the rehab total yourself"}
-                onClick={() => pickScope(s.value as RehabScope | null)}
-                className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                  active ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
-                )}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-        {plan && totals && (
-          <div className="text-xs sm:ml-auto sm:text-right">
-            <span className="num font-semibold">{formatCurrency(totals.total)}</span>
-            {sqft && <span className="text-muted-foreground"> · {formatCurrency(totals.total.div(sqft))}/sq ft</span>}
-          </div>
-        )}
-      </div>
-
-      {plan && totals && (
-        <div className="space-y-2 border-t px-3 py-2.5">
+  const details = plan && totals ? (
+        <div className={cn("space-y-2", !bare && "border-t px-3 py-2.5")}>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             {REHAB_SCOPES.find((s) => s.value === plan.scope)?.description}. {code ? `${code}` : "U.S."} cost factor {factor.toString()}× ·{" "}
             {plan.contingencyPct}% contingency
@@ -204,8 +175,57 @@ export function RehabEstimator({
             </div>
           )}
         </div>
-      )}
+  ) : null;
+
+  const picker = (
+    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Rehab scope">
+      {[{ value: null, label: "Manual" }, ...REHAB_SCOPES].map((sc) => {
+        const active = (plan?.scope ?? null) === sc.value;
+        return (
+          <button
+            key={sc.label}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            title={"description" in sc ? sc.description : "Type the rehab total yourself"}
+            onClick={() => pickScope(sc.value as RehabScope | null)}
+            className={cn("rounded-md border px-2.5 py-1 text-xs transition-colors", active ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
+          >
+            {sc.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (bare) {
+    return (
+      <div className="space-y-2 pl-7">
+        {picker}
+        {plan && totals && sqft && <p className="text-[11px] text-muted-foreground">≈ {formatCurrency(totals.total.div(sqft))}/sq ft</p>}
+        {details}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border">
+      <div className="grid gap-3 p-3 sm:grid-cols-[1fr_12rem] sm:items-start">
+        <div className="space-y-2">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Hammer className="size-4 text-muted-foreground" /> Rehab / repairs
+            </div>
+            <p className="text-xs text-muted-foreground">How much work does it need? Pick a level to estimate the cost, or choose Manual and type your own number.</p>
+          </div>
+          {picker}
+        </div>
+        <div>
+          {amountField}
+          {plan && totals && sqft && <p className="mt-1 text-[11px] text-muted-foreground">{formatCurrency(totals.total.div(sqft))}/sq ft</p>}
+        </div>
+      </div>
+      {details}
     </div>
   );
 }
-

@@ -107,46 +107,40 @@ export function KeyMetrics({ a, columns = 3, checks }: { a: DealAnalysis; column
 export function ArvBreakdown({ a, className }: { a: DealAnalysis; className?: string }) {
   if (!a.afterRepairValue || !a.equityCreated || !a.maxOffer70) return null;
   const over = a.purchasePrice.minus(a.maxOffer70);
+  const under70 = !over.gt(0);
   // Amounts never wrap mid-number; operators may wrap between them in narrow columns.
   const $ = (v: D) => <span className="whitespace-nowrap">{money(v)}</span>;
-  const rows = [
-    {
-      label: "Equity created",
-      math: (
-        <>
-          {$(a.afterRepairValue)} − ({$(a.purchasePrice)} + {$(a.closingCosts)} + {$(a.rehabCosts)})
-        </>
-      ),
-      formula: "ARV − (Purchase price + Closing costs + Rehab)",
-      note: `Total project cost ${money(a.totalProjectCost)}`,
-      result: a.equityCreated,
-    },
-    {
-      label: "70% rule max offer",
-      math: (
-        <>
-          {$(a.afterRepairValue)} × 70% − {$(a.rehabCosts)}
-        </>
-      ),
-      formula: "ARV × 70% − Rehab",
-      note: over.gt(0) ? `Your price is ${money(over)} above this ceiling` : `Your price is ${money(over.negated())} below this ceiling`,
-      result: a.maxOffer70,
-    },
-  ];
   return (
-    <div className={cn("divide-y rounded-lg border bg-muted/30 text-sm", className)}>
-      {rows.map((r) => (
-        <div key={r.label} className="space-y-1 px-3 py-2.5">
+    <div className={cn("@container", className)}>
+      <div className="grid gap-3 @md:grid-cols-2">
+        <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs font-medium">{r.label}</span>
-            <span className={cn("num font-semibold whitespace-nowrap", r.result.isNegative() && "text-negative")}>= {money(r.result)}</span>
+            <span className="text-xs font-medium">Equity created</span>
+            <span className={cn("num text-base font-semibold whitespace-nowrap", a.equityCreated.isNegative() ? "text-negative" : "text-positive")}>
+              {money(a.equityCreated)}
+            </span>
           </div>
-          <div className="num font-mono text-xs">{r.math}</div>
-          <div className="text-[11px] leading-snug text-muted-foreground">
-            {r.formula} · {r.note}
+          <p className="text-xs text-muted-foreground">Value after repairs minus everything you put in to get there.</p>
+          <div className="num font-mono text-[11px] leading-relaxed text-muted-foreground">
+            ARV {$(a.afterRepairValue)} − (price {$(a.purchasePrice)} + closing {$(a.closingCosts)} + rehab {$(a.rehabCosts)})
           </div>
         </div>
-      ))}
+        <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-xs font-medium">70% rule ceiling</span>
+            <span className="num text-base font-semibold whitespace-nowrap">{money(a.maxOffer70)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Flipper rule of thumb: pay no more than 70% of ARV minus rehab.{" "}
+            <span className={cn("font-medium whitespace-nowrap", under70 ? "text-positive" : "text-caution")}>
+              {under70 ? `You're ${money(over.negated())} under` : `You're ${money(over)} over`}
+            </span>
+          </p>
+          <div className="num font-mono text-[11px] leading-relaxed text-muted-foreground">
+            ARV {$(a.afterRepairValue)} × 70% − rehab {$(a.rehabCosts)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
