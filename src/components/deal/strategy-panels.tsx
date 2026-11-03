@@ -42,7 +42,7 @@ const parse = (s: string) => {
 
 export function StrategyPicker({ value, onChange }: { value: StrategyValue; onChange: (v: StrategyValue) => void }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Investment strategy">
+    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Investment strategy">
       {STRATEGIES.map((s) => {
         const active = value === s.value;
         return (
@@ -53,7 +53,7 @@ export function StrategyPicker({ value, onChange }: { value: StrategyValue; onCh
             aria-checked={active}
             onClick={() => onChange(s.value)}
             className={cn(
-              "rounded-xl border bg-card p-3 text-left shadow-xs transition-colors",
+              "rounded-xl border bg-card px-3 py-2.5 text-left shadow-xs transition-colors sm:py-3",
               active ? "border-foreground ring-1 ring-foreground" : "hover:border-foreground/30",
             )}
           >
@@ -61,7 +61,7 @@ export function StrategyPicker({ value, onChange }: { value: StrategyValue; onCh
               <span className={cn("size-3 rounded-full border", active ? "border-foreground bg-foreground" : "border-muted-foreground/40")} />
               {s.label}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{s.short}</div>
+            <div className="mt-1 hidden text-xs text-muted-foreground sm:block">{s.short}</div>
           </button>
         );
       })}

@@ -297,11 +297,11 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         />
 
         <Section title="Property" description="Basic details used for per-unit and per-square-foot metrics.">
-          <div className="grid gap-4 sm:grid-cols-6">
-            {text("name", "Deal name *", { placeholder: "e.g. Maple St Duplex", className: "sm:col-span-4" })}
-            {select("status", "Status", DEAL_STATUSES, undefined, "sm:col-span-2")}
-            {text("address", "Street address", { className: "sm:col-span-6" })}
-            {text("city", "City", { className: "sm:col-span-3" })}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-6">
+            {text("name", "Deal name *", { placeholder: "e.g. Maple St Duplex", className: "col-span-2 sm:col-span-4" })}
+            {select("status", "Status", DEAL_STATUSES, undefined, "col-span-2 sm:col-span-2")}
+            {text("address", "Street address", { className: "col-span-2 sm:col-span-6" })}
+            {text("city", "City", { className: "col-span-2 sm:col-span-3" })}
             {select("state", "State", US_STATES.map((s) => ({ value: s, label: s })), undefined, "sm:col-span-1")}
             {text("zip", "ZIP", { className: "sm:col-span-2" })}
             {select(
@@ -312,7 +312,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
                 const t = PROPERTY_TYPES.find((p) => p.value === v);
                 if (t) setValue("units", String(t.units), { shouldDirty: true });
               },
-              "sm:col-span-3",
+              "col-span-2 sm:col-span-3",
             )}
             {num("units", "Units", { className: "sm:col-span-1" })}
             {num("squareFeet", "Sq ft", { className: "sm:col-span-2" })}
@@ -323,7 +323,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         </Section>
 
         <Section title="Purchase" description="Your all-in acquisition cost and, optionally, the value after repairs.">
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {num("purchasePrice", "Purchase price *", { prefix: "$" })}
             {num("closingCosts", "Closing costs", { prefix: "$", hint: <EstimateHint est={closingEst} auto={closingAuto} fallback="Enter price & state to estimate" /> })}
             {num("rehabCosts", "Rehab / repairs", {

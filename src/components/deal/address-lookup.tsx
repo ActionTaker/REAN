@@ -101,7 +101,7 @@ export function AddressLookup({
               onAddressSelected?.(sug);
               run(false, sug.label); // picking a suggestion fetches estimates right away
             }}
-            placeholder="Start typing an address — e.g. 4218 N Graceland Ave"
+            placeholder="Start typing an address…"
           />
           <Button type="button" onClick={() => run()} disabled={pending || address.trim().length < 8} className="shrink-0">
             {pending ? <Loader2 className="animate-spin" /> : <Wand2 />} Get estimates

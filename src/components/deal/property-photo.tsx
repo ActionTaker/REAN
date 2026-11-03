@@ -49,25 +49,28 @@ export function PropertyPhoto({
     };
   }, [location, width, height]);
 
-  const box = cn("relative overflow-hidden rounded-lg border bg-muted", className);
+  // `className` goes last in every branch so callers can hide/resize it (e.g. "hidden sm:block").
+  const box = (extra?: string) => cn("relative overflow-hidden rounded-lg border bg-muted", extra, className);
   if (!location) return null;
   if (state.loading) {
     return (
-      <div className={cn(box, "flex items-center justify-center")} style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className={box("flex items-center justify-center")} style={{ aspectRatio: `${width} / ${height}` }}>
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
       </div>
     );
   }
   if (!state.src) {
+    // No Maps key is a setup detail, not something end users should see: hide the slot outside development.
+    if (state.reason === "not_configured" && process.env.NODE_ENV !== "development") return null;
     return (
-      <div className={cn(box, "flex flex-col items-center justify-center gap-1 p-3 text-center")} style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className={box("flex flex-col items-center justify-center gap-1 p-3 text-center")} style={{ aspectRatio: `${width} / ${height}` }}>
         <ImageOff className="size-4 text-muted-foreground" />
         <span className="text-[11px] leading-snug text-muted-foreground">{MESSAGES[state.reason ?? "unavailable"] ?? MESSAGES.unavailable}</span>
       </div>
     );
   }
   return (
-    <div className={box} style={{ aspectRatio: `${width} / ${height}` }}>
+    <div className={box()} style={{ aspectRatio: `${width} / ${height}` }}>
       {/* eslint-disable-next-line @next/next/no-img-element -- blob URL from our proxy; next/image can't optimize it */}
       <img src={state.src} alt="Street view of the property" className="size-full object-cover" />
       <span className="absolute right-1.5 bottom-1 rounded bg-black/50 px-1 text-[9px] text-white">Street View</span>
