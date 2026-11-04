@@ -19,6 +19,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <p className="font-medium">Free plan</p>
           <p className="mt-0.5 text-muted-foreground">Unlimited Buy & Hold, BRRRR and Flip analyses.</p>
         </div>
+        <nav className="mt-3 flex gap-3 px-2.5 text-[11px] text-muted-foreground" aria-label="Legal">
+          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+          <Link href="/terms" className="hover:text-foreground">Terms</Link>
+        </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur lg:px-8">

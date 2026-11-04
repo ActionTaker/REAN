@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth-helpers";
+import { signOut } from "@/auth";
 import { seedSamples } from "@/lib/data/properties";
 import { settingsSchema, type SettingsFormValues } from "@/lib/validation/deal";
 
@@ -40,4 +41,14 @@ export async function restoreSampleData() {
   await prisma.property.deleteMany({ where: { userId: user.id, isSample: true } });
   await seedSamples(user.id);
   revalidatePath("/", "layout");
+}
+
+export type DeleteAccountResult = { ok: false; error: string } | undefined;
+
+/** Permanently delete the signed-in account and everything in it (deals, settings, lookup records cascade). */
+export async function deleteAccount(confirmation: string): Promise<DeleteAccountResult> {
+  const user = await requireUser();
+  if (confirmation.trim() !== "DELETE") return { ok: false, error: "Type DELETE to confirm." };
+  await prisma.user.delete({ where: { id: user.id } });
+  await signOut({ redirectTo: "/" });
 }

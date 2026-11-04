@@ -397,7 +397,13 @@ export default async function LandingPage() {
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-start sm:justify-between">
-          <Brand href="/" />
+          <div className="space-y-3">
+            <Brand href="/" />
+            <nav className="flex gap-4 text-sm text-muted-foreground" aria-label="Legal">
+              <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>
+            </nav>
+          </div>
           <Disclaimer className="max-w-2xl" />
         </div>
       </footer>

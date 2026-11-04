@@ -1,12 +1,13 @@
 "use client";
 
-import { useSyncExternalStore, useTransition } from "react";
-import { FlaskConical, Loader2, Monitor, Moon, Sun } from "lucide-react";
+import { useState, useSyncExternalStore, useTransition } from "react";
+import { FlaskConical, Loader2, Monitor, Moon, Sun, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { removeSampleData, restoreSampleData } from "@/app/actions/settings";
+import { deleteAccount, removeSampleData, restoreSampleData } from "@/app/actions/settings";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export function SampleDataCard({ count }: { count: number }) {
@@ -77,6 +78,42 @@ export function ThemeCard() {
             <Icon className="size-4" /> {label}
           </button>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Self-serve account deletion (Privacy Policy: "Delete your account at any time from Settings"). */
+export function DeleteAccountCard({ isGuest }: { isGuest: boolean }) {
+  const [pending, start] = useTransition();
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Card className="border-destructive/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm"><Trash2 className="size-4" /> {isGuest ? "Delete this demo" : "Delete account"}</CardTitle>
+        <CardDescription className="text-xs">
+          Permanently deletes your {isGuest ? "demo" : "account"}, every deal, report and setting in it. This can&apos;t be undone
+          {isGuest ? "." : " — export your deals from My Properties first if you want a copy."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex-1 space-y-1">
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type DELETE to confirm" aria-label="Type DELETE to confirm" />
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+        <Button
+          variant="destructive"
+          disabled={pending || text.trim() !== "DELETE"}
+          onClick={() =>
+            start(async () => {
+              const res = await deleteAccount(text);
+              if (res && !res.ok) setError(res.error);
+            })
+          }
+        >
+          {pending && <Loader2 className="animate-spin" />} Delete permanently
+        </Button>
       </CardContent>
     </Card>
   );

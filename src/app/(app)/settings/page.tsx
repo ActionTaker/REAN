@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import { getSettings } from "@/lib/data/settings";
 import { countSampleProperties } from "@/lib/data/properties";
 import { SettingsForm } from "./settings-form";
-import { SampleDataCard, ThemeCard } from "./settings-cards";
+import { DeleteAccountCard, SampleDataCard, ThemeCard } from "./settings-cards";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -36,6 +36,7 @@ export default async function SettingsPage() {
           <Button variant="outline" disabled>Upgrade — coming soon</Button>
         </CardContent>
       </Card>
+      <DeleteAccountCard isGuest={user.isGuest} />
     </div>
   );
 }

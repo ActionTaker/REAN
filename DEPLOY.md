@@ -21,6 +21,7 @@ DEALAN is a standard Next.js 16 app with Prisma 6 and Postgres. These steps use 
    - `DATABASE_URL` — the Neon string
    - `AUTH_SECRET` — a new value from `npx auth secret` (don't reuse the local one)
    - `RENTCAST_API_KEY`, `LOOKUP_USER_LIMIT`, `LOOKUP_MONTHLY_LIMIT`
+   - `CONTACT_EMAIL` — shown on the Privacy Policy and Terms for privacy and account requests
    - `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_ATTRIBUTION`
    - Optional: `GOOGLE_MAPS_API_KEY`, `GEOAPIFY_API_KEY`
    Preview deployments should point at a separate database branch so they never migrate production.

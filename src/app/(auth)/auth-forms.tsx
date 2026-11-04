@@ -83,6 +83,11 @@ export function RegisterForm() {
             {pending && <Loader2 className="animate-spin" />}
             Create account
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            By creating an account you agree to the{" "}
+            <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms of Service</Link> and{" "}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</Link>.
+          </p>
         </form>
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
