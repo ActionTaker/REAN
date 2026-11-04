@@ -8,6 +8,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Migrations need a session connection; the app runs through a transaction pooler in production.
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Auth.js models ──────────────────────────────────────────────────────────
