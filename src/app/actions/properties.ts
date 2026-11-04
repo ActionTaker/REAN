@@ -45,6 +45,8 @@ export async function saveDeal(id: string | null, values: DealFormValues, lookup
   }
 
   const created = await prisma.property.create({ data: { ...data, userId: user.id } });
+  // Activation: the first deal a person saves themselves (sample deals don't count).
+  await prisma.user.updateMany({ where: { id: user.id, firstDealSavedAt: null }, data: { firstDealSavedAt: new Date() } });
   revalidateAll();
   return { ok: true, id: created.id };
 }

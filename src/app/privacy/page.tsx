@@ -36,6 +36,12 @@ export default function PrivacyPage() {
             doesn&apos;t have to be fetched again. We log which account made each new lookup, to enforce usage limits.
           </li>
           <li>
+            <strong className="text-foreground">Where you came from:</strong> if you arrive from another site or a link tagged with
+            campaign information (for example from one of our ads), we note the site, the campaign tags and the first page you visited, and save
+            them with your account when you sign up. We also note when you save your first deal. We use this to learn which channels bring
+            people who find DEALAN useful.
+          </li>
+          <li>
             <strong className="text-foreground">Technical data:</strong> like any website, our hosting provider receives your IP address, browser
             type and the pages requested, in server logs used for security and troubleshooting.
           </li>
@@ -95,6 +101,10 @@ export default function PrivacyPage() {
           <li>
             <strong className="text-foreground">Sign-in cookies</strong> keep you signed in and protect forms from cross-site requests. They&apos;re
             required for the service to work.
+          </li>
+          <li>
+            <strong className="text-foreground">A first-party source cookie</strong> remembers, for up to 30 days, the site or campaign that
+            first brought you here, so it can be saved with your account if you sign up. It isn&apos;t shared with anyone.
           </li>
           <li>
             <strong className="text-foreground">Your browser&apos;s local storage</strong> remembers preferences such as light or dark mode.

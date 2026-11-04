@@ -23,6 +23,15 @@ model User {
   passwordHash  String?
   /// A private demo account made by "Try the demo"; deleted after a few days unless the visitor signs up.
   isGuest       Boolean   @default(false)
+  /// First-touch attribution captured before sign-up (UTM tags, landing page, referring site).
+  signupSource   String?
+  signupMedium   String?
+  signupCampaign String?
+  signupContent  String?
+  signupLanding  String?
+  signupReferrer String?
+  /// When the user saved their first own (non-sample) deal — the activation event.
+  firstDealSavedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
