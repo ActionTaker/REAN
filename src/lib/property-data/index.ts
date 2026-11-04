@@ -32,8 +32,8 @@ export function activeProvider(): Provider | null {
 }
 
 /** Address → facts, value/ARV and rent estimates. Cached for 30 days per address to conserve API quota. */
-export async function lookupProperty(address: string, opts: { refresh?: boolean } = {}): Promise<PropertyLookup> {
-  const provider = activeProvider();
+export async function lookupProperty(address: string, opts: { refresh?: boolean; provider?: Provider } = {}): Promise<PropertyLookup> {
+  const provider = opts.provider ?? activeProvider();
   if (!provider) {
     throw new LookupError("Automated estimates aren't configured. Add RENTCAST_API_KEY to .env (free key at rentcast.io).", "not_configured");
   }
@@ -65,9 +65,15 @@ export async function lookupProperty(address: string, opts: { refresh?: boolean 
   return data;
 }
 
+/** Whether a lookup would be served from the 30-day cache (free) rather than the paid provider. */
+export async function isLookupCached(address: string, provider: Provider): Promise<boolean> {
+  const hit = await prisma.propertyDataCache.findUnique({ where: { addressKey: `${provider}:${normalizeAddressKey(address)}` }, select: { fetchedAt: true } });
+  return !!hit && Date.now() - hit.fetchedAt.getTime() < CACHE_DAYS * 86_400_000;
+}
+
 /** Previously fetched lookup, used when saving a deal so the server never trusts client-supplied market data. */
-export async function getCachedLookup(address: string): Promise<PropertyLookup | null> {
-  const provider = activeProvider();
+export async function getCachedLookup(address: string, providerOverride?: Provider): Promise<PropertyLookup | null> {
+  const provider = providerOverride ?? activeProvider();
   if (!provider) return null;
   const hit = await prisma.propertyDataCache.findUnique({ where: { addressKey: `${provider}:${normalizeAddressKey(address)}` } });
   return hit ? (hit.payload as unknown as PropertyLookup) : null;

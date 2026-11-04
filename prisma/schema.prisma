@@ -19,6 +19,8 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
+  /// A private demo account made by "Try the demo"; deleted after a few days unless the visitor signs up.
+  isGuest       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -26,6 +28,7 @@ model User {
   sessions   Session[]
   properties Property[]
   settings   UserSettings?
+  lookups    PropertyLookupLog[]
 }
 
 model Account {
@@ -223,4 +226,17 @@ model PropertyDataCache {
   provider   String
   payload    Json
   fetchedAt  DateTime @default(now())
+}
+
+/// One paid (uncached) property-data lookup, for per-user and monthly quotas.
+model PropertyLookupLog {
+  id         String   @id @default(cuid())
+  userId     String
+  addressKey String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth-helpers";
+import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/shell/brand";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
 import { MobileNav } from "@/components/shell/mobile-nav";
@@ -24,10 +26,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="lg:hidden">
             <Brand />
           </div>
-          <div className="ml-auto">
-            <UserMenu name={user.name} email={user.email} />
+          <div className="ml-auto flex items-center gap-2">
+            {user.isGuest && (
+              <Button size="sm" asChild>
+                <Link href="/register">Save my work — sign up free</Link>
+              </Button>
+            )}
+            <UserMenu name={user.name} email={user.isGuest ? "Private demo" : user.email} />
           </div>
         </header>
+        {user.isGuest && (
+          <div className="no-print border-b bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground lg:px-8">
+            You&apos;re in a private demo — nobody else sees it. It&apos;s kept for 3 days; sign up to keep your deals. Address lookups here use sample
+            data.
+          </div>
+        )}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>

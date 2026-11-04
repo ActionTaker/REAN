@@ -28,7 +28,7 @@ export async function saveDeal(id: string | null, values: DealFormValues, lookup
   if (!parsed.success) {
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  const lookup = lookupAddress ? await getCachedLookup(lookupAddress) : null;
+  const lookup = lookupAddress ? await getCachedLookup(lookupAddress, user.isGuest ? "demo" : undefined) : null;
   const data = {
     ...formOutputToData(parsed.data),
     // Undefined leaves an existing snapshot untouched on update.
