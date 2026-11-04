@@ -40,7 +40,7 @@ export function LoginForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sign in</CardTitle>
+        <CardTitle role="heading" aria-level={1}>Sign in</CardTitle>
         <CardDescription>Welcome back. Pick up where you left off.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -70,7 +70,7 @@ export function RegisterForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create your account</CardTitle>
+        <CardTitle role="heading" aria-level={1}>Create your account</CardTitle>
         <CardDescription>Start analyzing rental properties in minutes. Sample deals are included so you can explore.</CardDescription>
       </CardHeader>
       <CardContent>
