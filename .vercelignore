@@ -1,0 +1,11 @@
+# Never upload local secrets, the local database or private research to Vercel.
+.env
+.env.*
+!.env.example
+.pgdata
+.claude-ads
+.vscode
+dealcheckARVEST.png
+node_modules
+.next
+tsconfig.tsbuildinfo
