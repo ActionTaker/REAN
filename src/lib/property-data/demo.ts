@@ -3,6 +3,7 @@ import { D, dec } from "@/lib/finance/decimal";
 import { totalRent } from "./estimates";
 import { lookupArv } from "./comps-arv";
 import { normalizeAddressKey, type Comparable, type PropertyLookup } from "./types";
+import { batchGeocode } from "./geocode";
 
 /**
  * Synthetic data for trying the feature without an API key
@@ -80,5 +81,36 @@ export function demoLookup(address: string): PropertyLookup {
       comparables: rentComps,
     },
     warnings: ["DEMO MODE — these numbers are synthetic, not real market data. Add a RentCast API key for real estimates."],
+  };
+}
+
+/** Downtown Indianapolis — where demo comps go when the typed address can't be located. */
+const DEMO_FALLBACK_CENTER = { lat: 39.7684, lng: -86.1581 };
+
+/**
+ * Puts a demo lookup on the map: the typed address via the free Census geocoder (falling back to a fixed
+ * city center), and each synthetic comp at its stated distance in a deterministic direction around it.
+ */
+export async function placeDemoOnMap(d: PropertyLookup): Promise<PropertyLookup> {
+  let center = DEMO_FALLBACK_CENTER;
+  try {
+    const hit = (await batchGeocode([d.address.formatted])).get(d.address.formatted);
+    if (hit) center = hit;
+  } catch {
+    // Geocoder unavailable — the fallback center keeps the map working.
+  }
+  const r = rng(`${d.addressKey}:map`);
+  const place = (c: Comparable): Comparable => {
+    const miles = c.distanceMiles ?? 0.5;
+    const bearing = r() * 2 * Math.PI;
+    const dLat = (miles / 69) * Math.cos(bearing);
+    const dLng = (miles / (69 * Math.cos((center.lat * Math.PI) / 180))) * Math.sin(bearing);
+    return { ...c, latitude: Number((center.lat + dLat).toFixed(6)), longitude: Number((center.lng + dLng).toFixed(6)) };
+  };
+  return {
+    ...d,
+    facts: { ...d.facts, latitude: center.lat, longitude: center.lng },
+    value: d.value ? { ...d.value, comparables: d.value.comparables.map(place) } : d.value,
+    rent: d.rent ? { ...d.rent, comparables: d.rent.comparables.map(place) } : d.rent,
   };
 }

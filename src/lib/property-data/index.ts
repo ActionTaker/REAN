@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { demoLookup } from "./demo";
+import { demoLookup, placeDemoOnMap } from "./demo";
 import { rentcastLookup } from "./rentcast";
 import { lookupArv, lookupRent } from "./comps-arv";
 import { needsCoordinates, withCoordinates } from "./geocode";
@@ -45,7 +45,7 @@ export async function lookupProperty(address: string, opts: { refresh?: boolean;
       const payload = hit.payload as unknown as PropertyLookup;
       // Older cached lookups have no comp coordinates: fill them free from the Census geocoder, once.
       if (needsCoordinates(payload)) {
-        const filled = await withCoordinates(payload);
+        const filled = provider === "demo" ? await placeDemoOnMap(payload) : await withCoordinates(payload);
         if (filled !== payload) {
           await prisma.propertyDataCache.update({ where: { addressKey: key }, data: { payload: filled as object } });
         }
@@ -56,7 +56,7 @@ export async function lookupProperty(address: string, opts: { refresh?: boolean;
   }
 
   const raw = provider === "demo" ? demoLookup(address) : await rentcastLookup(address, process.env.RENTCAST_API_KEY!);
-  const data = withFreshArv(provider === "demo" ? raw : await withCoordinates(raw));
+  const data = withFreshArv(provider === "demo" ? await placeDemoOnMap(raw) : await withCoordinates(raw));
   await prisma.propertyDataCache.upsert({
     where: { addressKey: key },
     update: { payload: data as object, fetchedAt: new Date(), provider },
