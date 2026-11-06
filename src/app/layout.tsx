@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { siteUrl } from "@/lib/site";
 import { AttributionCapture } from "@/components/attribution-capture";
+import { Analytics } from "@/components/analytics";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
             <Toaster position="bottom-center" />
             <AttributionCapture />
+            <Analytics />
           </TooltipProvider>
         </ThemeProvider>
       </body>

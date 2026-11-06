@@ -68,6 +68,10 @@ export default function PrivacyPage() {
             <strong className="text-foreground">Hosting and database providers</strong> store and serve the app and your account data.
           </li>
           <li>
+            <strong className="text-foreground">Google Analytics</strong> receives information about your visits (see Cookies below) to give us
+            usage statistics. It doesn&apos;t receive your name, email or the deals you enter.
+          </li>
+          <li>
             <strong className="text-foreground">RentCast</strong> receives the addresses you look up and returns property records, value and rent
             estimates, and comparable properties.
           </li>
@@ -110,10 +114,15 @@ export default function PrivacyPage() {
             <strong className="text-foreground">Your browser&apos;s local storage</strong> remembers preferences such as light or dark mode.
           </li>
         </ul>
-        <p>
-          We don&apos;t currently use analytics or advertising cookies. If we add them, we&apos;ll update this policy first and describe the choices
-          available to you.
-        </p>
+        <ul>
+          <li>
+            <strong className="text-foreground">Google Analytics</strong> sets cookies to count visits and see how people use the site — pages
+            viewed, where visitors came from, device type and approximate location, and whether someone started the demo, signed up or saved a
+            first deal. We turn off Google signals and ad personalization for it. You can block it with your browser&apos;s privacy settings or
+            Google&apos;s opt-out add-on (tools.google.com/dlpage/gaoptout).
+          </li>
+        </ul>
+        <p>We don&apos;t currently use advertising cookies or pixels. If we add them, we&apos;ll update this policy first and describe your choices.</p>
       </section>
 
       <section>

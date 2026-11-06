@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Brand } from "@/components/shell/brand";
 
 /** Effective date shown on both legal pages. Update it whenever either page changes. */
-export const LEGAL_EFFECTIVE_DATE = "November 4, 2026";
+export const LEGAL_EFFECTIVE_DATE = "November 5, 2026";
 
 /** Where people send privacy and account requests. Set CONTACT_EMAIL in the environment. */
 export function contactEmail(): string | null {

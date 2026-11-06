@@ -6,6 +6,7 @@ import { AuthError } from "next-auth";
 import { cookies } from "next/headers";
 import { auth, signIn, signOut } from "@/auth";
 import { ATTRIBUTION_COOKIE, attributionData, parseAttribution } from "@/lib/attribution";
+import { queueAnalyticsEvent } from "@/lib/analytics-events";
 import { prisma } from "@/lib/db";
 import { seedSamples } from "@/lib/data/properties";
 import { loginSchema, registerSchema } from "@/lib/validation/deal";
@@ -52,6 +53,7 @@ export async function demoLoginAction(): Promise<AuthFormState> {
     },
   });
   await seedSamples(user.id);
+  await queueAnalyticsEvent("demo_start");
   return credentialsSignIn(email, password);
 }
 
@@ -77,6 +79,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
       where: { id: current.id },
       data: { name, email, passwordHash: await bcrypt.hash(password, 12), isGuest: false, ...(keep ? {} : attributionData(attribution)) },
     });
+    await queueAnalyticsEvent("sign_up");
     return credentialsSignIn(email, password);
   }
 
@@ -85,6 +88,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   });
   // New accounts start with clearly labelled sample deals; they can be removed in Settings.
   await seedSamples(user.id);
+  await queueAnalyticsEvent("sign_up");
 
   return credentialsSignIn(email, password);
 }

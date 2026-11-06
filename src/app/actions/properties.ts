@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import { formOutputToData } from "@/lib/property-mapping";
 import { dealSchema, offerGoalsSchema, strategyInputsSchema, type DealFormValues } from "@/lib/validation/deal";
 import type { DealStatusValue } from "@/lib/constants";
+import { queueAnalyticsEvent } from "@/lib/analytics-events";
 import { getSettings } from "@/lib/data/settings";
 import { strategyDefaultsFrom } from "@/lib/new-deal-defaults";
 import { STRATEGIES, type StrategyValue } from "@/lib/strategy";
@@ -46,7 +47,8 @@ export async function saveDeal(id: string | null, values: DealFormValues, lookup
 
   const created = await prisma.property.create({ data: { ...data, userId: user.id } });
   // Activation: the first deal a person saves themselves (sample deals don't count).
-  await prisma.user.updateMany({ where: { id: user.id, firstDealSavedAt: null }, data: { firstDealSavedAt: new Date() } });
+  const first = await prisma.user.updateMany({ where: { id: user.id, firstDealSavedAt: null }, data: { firstDealSavedAt: new Date() } });
+  if (first.count > 0) await queueAnalyticsEvent("first_deal_saved");
   revalidateAll();
   return { ok: true, id: created.id };
 }
