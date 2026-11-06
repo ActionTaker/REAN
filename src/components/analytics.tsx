@@ -65,6 +65,8 @@ export function Analytics() {
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 window.gtag = gtag;
+gtag('consent', 'default', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'denied' });
+gtag('set', 'allow_ad_personalization_signals', false);
 gtag('js', new Date());
 gtag('config', '${GA_ID}', { allow_google_signals: false, allow_ad_personalization_signals: false });${
           ADS_ID ? `\ngtag('config', '${ADS_ID}', { allow_ad_personalization_signals: false });` : ""
