@@ -130,7 +130,8 @@ export default function PrivacyPage() {
         <p>
           &ldquo;Try the demo&rdquo; creates a private, temporary account with sample deals that only you can see. Address lookups in the demo use
           synthetic sample data. Demo accounts and everything in them are deleted automatically after 3 days, unless you sign up from inside the demo,
-          in which case they become your account.
+          in which case they become your account. We keep a record of each demo that contains no personal information — when it started, where the
+          visitor came from, and whether a deal was saved or an account created — to understand how the demo is used.
         </p>
       </section>
 

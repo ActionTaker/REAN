@@ -243,7 +243,7 @@ export function DealForm({ propertyId, defaultValues, criteria, isSample, initia
         return;
       }
       toast.success(propertyId ? "Analysis updated" : `“${data.name}” saved to My Properties`);
-      router.push(`/properties/${res.id}`);
+      router.push(`/properties/${res.id}${res.guestFirstSave ? "?kept=0" : ""}`);
       router.refresh();
     });
 

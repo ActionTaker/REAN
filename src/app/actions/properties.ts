@@ -13,7 +13,9 @@ import { getSettings } from "@/lib/data/settings";
 import { strategyDefaultsFrom } from "@/lib/new-deal-defaults";
 import { STRATEGIES, type StrategyValue } from "@/lib/strategy";
 
-export type SaveDealResult = { ok: true; id: string } | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
+export type SaveDealResult =
+  | { ok: true; id: string; /** A demo visitor just saved their first own deal — show the keep-it prompt. */ guestFirstSave?: boolean }
+  | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
 
 function revalidateAll() {
   for (const p of ["/dashboard", "/properties", "/compare", "/reports"]) revalidatePath(p);
@@ -48,9 +50,12 @@ export async function saveDeal(id: string | null, values: DealFormValues, lookup
   const created = await prisma.property.create({ data: { ...data, userId: user.id } });
   // Activation: the first deal a person saves themselves (sample deals don't count).
   const first = await prisma.user.updateMany({ where: { id: user.id, firstDealSavedAt: null }, data: { firstDealSavedAt: new Date() } });
-  if (first.count > 0) await queueAnalyticsEvent("first_deal_saved");
+  if (first.count > 0) {
+    await queueAnalyticsEvent("first_deal_saved");
+    if (user.isGuest) await prisma.demoSession.updateMany({ where: { userId: user.id, firstDealSavedAt: null }, data: { firstDealSavedAt: new Date() } });
+  }
   revalidateAll();
-  return { ok: true, id: created.id };
+  return { ok: true, id: created.id, guestFirstSave: user.isGuest && first.count > 0 };
 }
 
 export async function deleteProperty(id: string) {

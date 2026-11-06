@@ -14,15 +14,25 @@ import { PropertyPhoto } from "@/components/deal/property-photo";
 import { propertyTypeLabel } from "@/lib/constants";
 import { relativeTime } from "@/lib/analyze-record";
 import { taxAssumptionsFrom } from "@/lib/new-deal-defaults";
+import { requireUser } from "@/lib/auth-helpers";
+import { demoTimeLeft } from "@/lib/demo";
+import { GuestKeepPrompt } from "@/components/deal/guest-keep-prompt";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const p = await getProperty((await params).id);
   return { title: p?.name ?? "Property" };
 }
 
-export default async function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PropertyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ kept?: string }>;
+}) {
   const { id } = await params;
-  const [p, settings] = await Promise.all([getProperty(id), getSettings()]);
+  const { kept } = await searchParams;
+  const [p, settings, user] = await Promise.all([getProperty(id), getSettings(), requireUser()]);
   if (!p) notFound();
 
   const facts = [
@@ -36,6 +46,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
+      {user.isGuest && kept === "0" && !p.isSample && <GuestKeepPrompt timeLeft={demoTimeLeft(user.createdAt)} />}
       <div>
         <Link href="/properties" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ChevronLeft className="size-3.5" /> My Properties

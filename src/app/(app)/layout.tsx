@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth-helpers";
+import { demoTimeLeft } from "@/lib/demo";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/shell/brand";
 import { SidebarNav } from "@/components/shell/sidebar-nav";
@@ -41,8 +42,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         {user.isGuest && (
           <div className="no-print border-b bg-muted/60 px-4 py-2 text-center text-xs text-muted-foreground lg:px-8">
-            You&apos;re in a private demo — nobody else sees it. It&apos;s kept for 3 days; sign up to keep your deals. Address lookups here use sample
-            data.
+            You&apos;re in a private demo — nobody else sees it. It&apos;s deleted in{" "}
+            <span className="font-medium text-foreground">{demoTimeLeft(user.createdAt)}</span> unless you sign up, which keeps everything you&apos;ve
+            made. Address lookups here use sample data.
           </div>
         )}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>

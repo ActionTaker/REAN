@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { auth, signIn, signOut } from "@/auth";
 import { ATTRIBUTION_COOKIE, attributionData, parseAttribution } from "@/lib/attribution";
 import { queueAnalyticsEvent } from "@/lib/analytics-events";
+import { GUEST_DAYS } from "@/lib/demo";
 import { prisma } from "@/lib/db";
 import { seedSamples } from "@/lib/data/properties";
 import { loginSchema, registerSchema } from "@/lib/validation/deal";
@@ -29,8 +30,6 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   return credentialsSignIn(parsed.data.email, parsed.data.password);
 }
 
-/** Private demo accounts are removed after this many days unless the visitor signs up. */
-const GUEST_DAYS = 3;
 
 /**
  * "Try the demo": a fresh private account with the sample deals, so visitors never see
@@ -53,6 +52,16 @@ export async function demoLoginAction(): Promise<AuthFormState> {
     },
   });
   await seedSamples(user.id);
+  await prisma.demoSession.create({
+    data: {
+      userId: user.id,
+      source: attribution?.source ?? null,
+      medium: attribution?.medium ?? null,
+      campaign: attribution?.campaign ?? null,
+      landing: attribution?.landing ?? null,
+      referrer: attribution?.referrer ?? null,
+    },
+  });
   await queueAnalyticsEvent("demo_start");
   return credentialsSignIn(email, password);
 }
@@ -79,6 +88,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
       where: { id: current.id },
       data: { name, email, passwordHash: await bcrypt.hash(password, 12), isGuest: false, ...(keep ? {} : attributionData(attribution)) },
     });
+    await prisma.demoSession.updateMany({ where: { userId: current.id, signedUpAt: null }, data: { signedUpAt: new Date() } });
     await queueAnalyticsEvent("sign_up");
     return credentialsSignIn(email, password);
   }

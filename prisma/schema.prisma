@@ -251,3 +251,21 @@ model PropertyLookupLog {
   @@index([createdAt])
   @@index([userId, createdAt])
 }
+
+/// One "Try the demo" session, kept after the guest account is deleted (no personal data):
+/// where it came from, whether a deal was saved in the demo, and whether it became a sign-up.
+model DemoSession {
+  id               String    @id @default(cuid())
+  /// The guest user's id. Not a relation, so the row survives when the guest account is removed.
+  userId           String    @unique
+  createdAt        DateTime  @default(now())
+  source           String?
+  medium           String?
+  campaign         String?
+  landing          String?
+  referrer         String?
+  firstDealSavedAt DateTime?
+  signedUpAt       DateTime?
+
+  @@index([createdAt])
+}

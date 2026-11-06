@@ -10,6 +10,7 @@ export interface CurrentUser {
   email: string;
   /** Private demo account from "Try the demo". */
   isGuest: boolean;
+  createdAt: Date;
 }
 
 /** Session → user row, once per request. Redirects to /login when signed out. */
@@ -17,7 +18,7 @@ export const requireUser = cache(async (): Promise<CurrentUser> => {
   const session = await auth();
   const id = session?.user?.id;
   if (!id) redirect("/login");
-  const user = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, isGuest: true } });
+  const user = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, isGuest: true, createdAt: true } });
   if (!user) redirect("/login");
   return user;
 });

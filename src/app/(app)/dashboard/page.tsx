@@ -50,8 +50,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const header = (
     <PageHeader
-      title={firstName ? `Welcome back, ${firstName}` : "Dashboard"}
-      description="Portfolio-level view of every property you've analyzed."
+      title={user.isGuest ? "Welcome to your DEALAN demo" : firstName ? `Welcome back, ${firstName}` : "Dashboard"}
+      description={
+        user.isGuest
+          ? "Eight sample deals are loaded. Open one, or analyze your own in the Deal Analyzer."
+          : "Portfolio-level view of every property you've analyzed."
+      }
       actions={
         <Button asChild>
           <Link href="/analyzer"><Plus /> Analyze new property</Link>
