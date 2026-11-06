@@ -68,6 +68,10 @@ export default function PrivacyPage() {
             <strong className="text-foreground">Hosting and database providers</strong> store and serve the app and your account data.
           </li>
           <li>
+            <strong className="text-foreground">Google Ads</strong> learns, for visitors who came from our Google ads, whether they signed up or saved a
+            first deal. It doesn&apos;t receive your name, email or the deals you enter.
+          </li>
+          <li>
             <strong className="text-foreground">Google Analytics</strong> receives information about your visits (see Cookies below) to give us
             usage statistics. It doesn&apos;t receive your name, email or the deals you enter.
           </li>
@@ -122,7 +126,14 @@ export default function PrivacyPage() {
             Google&apos;s opt-out add-on (tools.google.com/dlpage/gaoptout).
           </li>
         </ul>
-        <p>We don&apos;t currently use advertising cookies or pixels. If we add them, we&apos;ll update this policy first and describe your choices.</p>
+        <ul>
+          <li>
+            <strong className="text-foreground">Google Ads conversion measurement</strong> sets a cookie when you arrive from one of our Google ads,
+            so we can tell whether that ad led to a sign-up or a first saved deal. We don&apos;t use it to build remarketing audiences or personalized
+            ads, and ad personalization is turned off.
+          </li>
+        </ul>
+        <p>We don&apos;t use other advertising cookies or pixels. If we add any, we&apos;ll update this policy first and describe your choices.</p>
       </section>
 
       <section>
