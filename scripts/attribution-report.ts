@@ -2,6 +2,8 @@
  * Sign-ups and activation by where people came from.
  *   npx tsx scripts/attribution-report.ts [--days 30]
  * Uses DATABASE_URL (local by default). Demo accounts that never signed up are counted separately.
+ * Engagement columns: "came back" = opened the app on 2+ different days (tracked from Nov 6 2026, the
+ * user_activity migration), "3+ deals" = saved 3+ of their own (non-sample) deals, "looked up" = 1+ address lookups.
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -10,7 +12,7 @@ const daysArg = process.argv.indexOf("--days");
 const days = daysArg > 0 ? Number(process.argv[daysArg + 1]) || 30 : 30;
 const since = new Date(Date.now() - days * 86_400_000);
 
-type Row = { key: string; signups: number; activated: number; hours: number[] };
+type Row = { key: string; signups: number; activated: number; hours: number[]; cameBack: number; deals3: number; lookedUp: number };
 
 function channel(u: { signupSource: string | null; signupMedium: string | null; signupCampaign: string | null; signupReferrer: string | null }) {
   if (u.signupSource) return `${u.signupSource} / ${u.signupMedium ?? "-"} / ${u.signupCampaign ?? "-"}`;
@@ -21,7 +23,18 @@ function channel(u: { signupSource: string | null; signupMedium: string | null; 
 async function main() {
   const users = await prisma.user.findMany({
     where: { createdAt: { gte: since }, email: { not: "demo@dealan.app" } },
-    select: { isGuest: true, createdAt: true, firstDealSavedAt: true, signupSource: true, signupMedium: true, signupCampaign: true, signupReferrer: true, signupLanding: true },
+    select: {
+      isGuest: true,
+      createdAt: true,
+      firstDealSavedAt: true,
+      activeDays: true,
+      _count: { select: { properties: { where: { isSample: false } }, lookups: true } },
+      signupSource: true,
+      signupMedium: true,
+      signupCampaign: true,
+      signupReferrer: true,
+      signupLanding: true,
+    },
   });
   const real = users.filter((u) => !u.isGuest);
   const demos = users.filter((u) => u.isGuest);
@@ -30,8 +43,11 @@ async function main() {
     const m = new Map<string, Row>();
     for (const u of real) {
       const k = keyOf(u);
-      const r = m.get(k) ?? { key: k, signups: 0, activated: 0, hours: [] };
+      const r = m.get(k) ?? { key: k, signups: 0, activated: 0, hours: [], cameBack: 0, deals3: 0, lookedUp: 0 };
       r.signups++;
+      if (u.activeDays >= 2) r.cameBack++;
+      if (u._count.properties >= 3) r.deals3++;
+      if (u._count.lookups > 0) r.lookedUp++;
       if (u.firstDealSavedAt) {
         r.activated++;
         r.hours.push((u.firstDealSavedAt.getTime() - u.createdAt.getTime()) / 3_600_000);
@@ -55,13 +71,19 @@ async function main() {
         "saved a deal": r.activated,
         "activation %": r.signups ? Math.round((r.activated / r.signups) * 100) : 0,
         "median hours to first save": median(r.hours)?.toFixed(1) ?? "-",
+        "came back": r.cameBack,
+        "3+ deals": r.deals3,
+        "looked up": r.lookedUp,
       })),
     );
   };
 
   console.log(`Last ${days} days (since ${since.toISOString().slice(0, 10)}): ${real.length} sign-ups, ${demos.length} demos not converted yet`);
   print("By source / medium / campaign", group(channel));
-  print("By first page", group((u) => u.signupLanding ?? "(unknown)"));
+  print(
+    "By first page",
+    group((u) => u.signupLanding ?? "(unknown)"),
+  );
 
   // Demo funnel: every "Try the demo", kept even after unconverted demo accounts are deleted.
   const demosAll = await prisma.demoSession.findMany({ where: { createdAt: { gte: since } } });

@@ -32,6 +32,9 @@ model User {
   signupReferrer String?
   /// When the user saved their first own (non-sample) deal — the activation event.
   firstDealSavedAt DateTime?
+  /// Last time the user opened an app page (updated at most hourly), and how many distinct UTC days they've opened one.
+  lastSeenAt DateTime?
+  activeDays Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

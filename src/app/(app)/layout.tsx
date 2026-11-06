@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { after } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
+import { recordVisit } from "@/lib/activity";
 import { demoTimeLeft } from "@/lib/demo";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/shell/brand";
@@ -9,6 +11,7 @@ import { UserMenu } from "@/components/shell/user-menu";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  after(() => recordVisit(user).catch(() => {}));
   return (
     <div className="flex min-h-screen">
       <aside className="no-print sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-sidebar px-3 py-4 lg:flex">
@@ -21,8 +24,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <p className="mt-0.5 text-muted-foreground">Unlimited Buy & Hold, BRRRR and Flip analyses.</p>
         </div>
         <nav className="mt-3 flex gap-3 px-2.5 text-[11px] text-muted-foreground" aria-label="Legal">
-          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link href="/terms" className="hover:text-foreground">Terms</Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
