@@ -6,8 +6,6 @@ import { Brand } from "@/components/shell/brand";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
 
-
-
 /* Figures in the mock-ups below are the app's own sample deals, labelled as examples. */
 
 function DemoButton({ className, children = "Try the demo — no sign-up" }: { className?: string; children?: React.ReactNode }) {
@@ -96,9 +94,53 @@ function HeroMock() {
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
         {["15 sales comps", "15 rental comps", "Stress test", "Lender-ready report"].map((t) => (
-          <span key={t} className="rounded-full border px-2 py-0.5 text-muted-foreground">{t}</span>
+          <span key={t} className="rounded-full border px-2 py-0.5 text-muted-foreground">
+            {t}
+          </span>
         ))}
       </div>
+    </Frame>
+  );
+}
+
+function RentalMock() {
+  const rows: [string, string, boolean][] = [
+    ["Rent", "+$1,650", true],
+    ["Vacancy 5%", "−$83", false],
+    ["Property tax", "−$175", false],
+    ["Insurance", "−$95", false],
+    ["Management 8%", "−$132", false],
+    ["Repairs & capex", "−$165", false],
+    ["Mortgage (P&I)", "−$809", false],
+  ];
+  const tiles: [string, string][] = [
+    ["Cap rate", "6.35%"],
+    ["Cash-on-cash", "4.33%"],
+    ["DSCR", "1.24"],
+  ];
+  return (
+    <Frame title="Rental cash flow">
+      <div className="divide-y rounded-lg border text-sm">
+        {rows.map(([k, v, plus]) => (
+          <div key={k} className="flex items-center px-3 py-1.5">
+            <span className="text-muted-foreground">{k}</span>
+            <span className={cn("num ml-auto", plus && "text-positive")}>{v}</span>
+          </div>
+        ))}
+        <div className="flex items-center bg-muted/40 px-3 py-2 font-semibold">
+          Cash flow
+          <span className="num ml-auto text-positive">$191/mo</span>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {tiles.map(([k, v]) => (
+          <div key={k} className="rounded-lg border p-2.5">
+            <div className="text-[11px] text-muted-foreground">{k}</div>
+            <div className="num text-lg font-semibold">{v}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">At a $189,000 price, 25% down plus closing costs. Every line is editable and shows its formula.</p>
     </Frame>
   );
 }
@@ -215,12 +257,25 @@ function StressMock() {
 
 const FEATURES = [
   {
+    id: "rental",
+    icon: Calculator,
+    eyebrow: "Rental calculator",
+    title: "Cash flow, cap rate and cash-on-cash — line by line.",
+    body: "Rent, vacancy, taxes, insurance, management, repairs and the mortgage, each showing what it adds or takes from the month. Cap rate, cash-on-cash, DSCR and 30-year returns update as you type.",
+    points: ["Rent and taxes filled in from the address", "1–4 units and small multifamily with a rent roll", "Every metric shows its formula"],
+    mock: <RentalMock />,
+  },
+  {
     id: "max-offer",
     icon: Target,
     eyebrow: "Max offer price",
     title: "Know your number before you call the agent.",
     body: "Set the goals that matter for this deal — cash flow, cash-on-cash, cap rate, DSCR, equity. DEALAN works backward to the highest price that still meets every one, and tells you which goal is holding it back.",
-    points: ["Re-solves instantly as you change rent, rate or rehab", "Choose same-% or same-$ down payment", "Reassess property tax at your offer price"],
+    points: [
+      "Re-solves instantly as you change rent, rate or rehab",
+      "Choose same-% or same-$ down payment",
+      "Reassess property tax at your offer price",
+    ],
     mock: <MaxOfferMock />,
   },
   {
@@ -229,7 +284,11 @@ const FEATURES = [
     eyebrow: "Comps & ARV",
     title: "An ARV you can actually defend.",
     body: "See each comparable sale on a map with the dollar adjustments for size, beds, baths and age. No black-box number — show your lender or partner exactly how you got there.",
-    points: ["Sales and rental comps from public records and listings", "Pick which comps count and tag the renovated ones", "Confidence and the range they support"],
+    points: [
+      "Sales and rental comps from public records and listings",
+      "Pick which comps count and tag the renovated ones",
+      "Confidence and the range they support",
+    ],
     mock: <CompsMock />,
   },
   {
@@ -238,7 +297,11 @@ const FEATURES = [
     eyebrow: "BRRRR & flips",
     title: "How much cash stays stuck in the deal?",
     body: "Model the hard-money buy, the rehab, the holding months and the cash-out refinance. For flips, profit, ROI and the break-even sale price.",
-    points: ["Cash left in the deal and cash-on-cash after the refi", "Max price to get all your cash back", "What-if: rehab runs long, ARV comes in low"],
+    points: [
+      "Cash left in the deal and cash-on-cash after the refi",
+      "Max price to get all your cash back",
+      "What-if: rehab runs long, ARV comes in low",
+    ],
     mock: <BrrrrMock />,
   },
   {
@@ -256,7 +319,11 @@ const FEATURES = [
     eyebrow: "Stress test",
     title: "Does it still cash flow if rent drops 10%?",
     body: "Your spreadsheet shows the best case. DEALAN changes one assumption at a time — rent, rate, vacancy, taxes, repairs — then all of them together, and tells you the price that still breaks even.",
-    points: ["Five what-ifs plus the worst case combined", "Break-even purchase price under stress", "Same test for BRRRR and flips: rehab runs long, ARV comes in low"],
+    points: [
+      "Five what-ifs plus the worst case combined",
+      "Break-even purchase price under stress",
+      "Same test for BRRRR and flips: rehab runs long, ARV comes in low",
+    ],
     mock: <StressMock />,
   },
 ] as const;
@@ -265,6 +332,10 @@ export type LandingAngle = (typeof FEATURES)[number]["id"];
 
 /** Hero copy per ad angle, so each ad lands on a page that repeats its promise. */
 const HEROES: Record<LandingAngle, { title: string; body: string }> = {
+  rental: {
+    title: "Rental property calculator: cash flow, cap rate, cash-on-cash.",
+    body: "Type an address. Rent, taxes and comps fill in, every expense shows what it takes from the month — and DEALAN works out the highest price that still meets your goals.",
+  },
   "max-offer": {
     title: "Know your max offer before you call the agent.",
     body: "Type an address. DEALAN pulls comps and rent, shows every adjustment, and works backward from your goals to the highest price that still works.",
@@ -288,11 +359,20 @@ const HEROES: Record<LandingAngle, { title: string; body: string }> = {
 };
 
 const FAQ = [
-  ["Where do the numbers come from?", "Address lookups pull property records, value and rent estimates and comparable sales and rentals from RentCast. Taxes, insurance and rehab start from state averages. Every figure is editable, and automated estimates can be wrong — check them against an agent, an appraisal and a property manager."],
+  [
+    "Where do the numbers come from?",
+    "Address lookups pull property records, value and rent estimates and comparable sales and rentals from RentCast. Taxes, insurance and rehab start from state averages. Every figure is editable, and automated estimates can be wrong — check them against an agent, an appraisal and a property manager.",
+  ],
   ["What does it cost?", "DEALAN is free while it's in early access. You don't need a credit card to sign up."],
   ["Which strategies does it handle?", "Buy & hold rentals (1–4 units and small multifamily), BRRRR, fix-and-flip, and adding an ADU to a rental."],
-  ["Is this investment advice?", "No. DEALAN does the math on the assumptions you enter and shows how every number is calculated. Results are estimates, not guarantees."],
-  ["Can I try it without signing up?", "Yes. The demo opens a private copy with sample deals that only you can see. Sign up from inside it and your work is kept."],
+  [
+    "Is this investment advice?",
+    "No. DEALAN does the math on the assumptions you enter and shows how every number is calculated. Results are estimates, not guarantees.",
+  ],
+  [
+    "Can I try it without signing up?",
+    "Yes. The demo opens a private copy with sample deals that only you can see. Sign up from inside it and your work is kept.",
+  ],
 ] as const;
 
 /**
@@ -311,16 +391,35 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
           <Brand href="/" />
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex" aria-label="Page">
-            <a href="#max-offer" className="hover:text-foreground">Max offer</a>
-            <a href="#comps" className="hover:text-foreground">Comps & ARV</a>
-            <a href="#brrrr" className="hover:text-foreground">BRRRR & flips</a>
-            <a href="#adu" className="hover:text-foreground">ADU</a>
-            <a href="#stress" className="hover:text-foreground">Stress test</a>
-            <a href="#faq" className="hover:text-foreground">FAQ</a>
+            <a href="#rental" className="hover:text-foreground">
+              Rental
+            </a>
+            <a href="#max-offer" className="hover:text-foreground">
+              Max offer
+            </a>
+            <a href="#comps" className="hover:text-foreground">
+              Comps & ARV
+            </a>
+            <a href="#brrrr" className="hover:text-foreground">
+              BRRRR & flips
+            </a>
+            <a href="#adu" className="hover:text-foreground">
+              ADU
+            </a>
+            <a href="#stress" className="hover:text-foreground">
+              Stress test
+            </a>
+            <a href="#faq" className="hover:text-foreground">
+              FAQ
+            </a>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" asChild><Link href="/login">Sign in</Link></Button>
-            <Button asChild><Link href="/register">Get started</Link></Button>
+            <Button variant="ghost" asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/register">Get started</Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -333,7 +432,9 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
           className="mx-auto grid max-w-6xl scroll-mt-20 items-center gap-10 px-4 pt-14 pb-16 lg:grid-cols-[1.1fr_1fr] lg:pt-20"
         >
           <div>
-            <p className="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">For U.S. rental investors · Buy & Hold · BRRRR · Flip</p>
+            <p className="mb-4 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+              For U.S. rental investors · Buy & Hold · BRRRR · Flip
+            </p>
             <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{hero.title}</h1>
             <p className="mt-5 max-w-xl text-lg text-pretty text-muted-foreground">{hero.body}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -382,7 +483,9 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
               ["Get your offer", "Your max offer price, a stress test, and a lender-ready report you can print or share."],
             ].map(([t, b], i) => (
               <li key={t} className="rounded-xl border bg-card p-5">
-                <span className="flex size-7 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">{i + 1}</span>
+                <span className="flex size-7 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
+                  {i + 1}
+                </span>
                 <h3 className="mt-3 font-semibold">{t}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{b}</p>
               </li>
@@ -392,26 +495,28 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
 
         {/* Features */}
         <div className="space-y-20 pb-20">
-          {features.filter((f) => f.id !== angle || angle === "max-offer").map((f, i) => (
-            <section key={f.id} id={f.id} className="mx-auto grid max-w-6xl scroll-mt-20 items-center gap-10 px-4 lg:grid-cols-2">
-              <div className={cn(i % 2 === 1 && "lg:order-2")}>
-                <p className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                  <f.icon className="size-4" /> {f.eyebrow}
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance">{f.title}</h2>
-                <p className="mt-4 text-pretty text-muted-foreground">{f.body}</p>
-                <ul className="mt-5 space-y-2 text-sm">
-                  {f.points.map((p) => (
-                    <li key={p} className="flex gap-2">
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-positive" />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className={cn(i % 2 === 1 && "lg:order-1")}>{f.mock}</div>
-            </section>
-          ))}
+          {features
+            .filter((f) => f.id !== angle || angle === "max-offer")
+            .map((f, i) => (
+              <section key={f.id} id={f.id} className="mx-auto grid max-w-6xl scroll-mt-20 items-center gap-10 px-4 lg:grid-cols-2">
+                <div className={cn(i % 2 === 1 && "lg:order-2")}>
+                  <p className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                    <f.icon className="size-4" /> {f.eyebrow}
+                  </p>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance">{f.title}</h2>
+                  <p className="mt-4 text-pretty text-muted-foreground">{f.body}</p>
+                  <ul className="mt-5 space-y-2 text-sm">
+                    {f.points.map((p) => (
+                      <li key={p} className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-positive" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className={cn(i % 2 === 1 && "lg:order-1")}>{f.mock}</div>
+              </section>
+            ))}
         </div>
 
         {/* FAQ */}
@@ -438,7 +543,9 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
         <section className="mx-auto max-w-6xl px-4 py-16 text-center">
           <Calculator className="mx-auto size-6 text-muted-foreground" />
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance">Run your next deal before you make the offer.</h2>
-          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Free during early access. Start from an address, or open the demo with sample deals.</p>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+            Free during early access. Start from an address, or open the demo with sample deals.
+          </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Button size="lg" asChild>
               <Link href={primary.href}>
@@ -455,12 +562,19 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
           <div className="space-y-3">
             <Brand href="/" />
             <nav className="flex gap-4 text-sm text-muted-foreground" aria-label="Legal">
-              <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-foreground">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-foreground">
+                Terms of Service
+              </Link>
             </nav>
             {contact && (
               <p className="text-sm text-muted-foreground">
-                Contact: <a href={`mailto:${contact}`} className="underline underline-offset-2 hover:text-foreground">{contact}</a>
+                Contact:{" "}
+                <a href={`mailto:${contact}`} className="underline underline-offset-2 hover:text-foreground">
+                  {contact}
+                </a>
               </p>
             )}
           </div>

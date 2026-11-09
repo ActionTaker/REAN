@@ -8,4 +8,4 @@ export function siteUrl(): string {
 }
 
 /** Public, indexable marketing routes (the app itself is behind sign-in). */
-export const PUBLIC_ROUTES = ["/", "/lp/comps", "/lp/brrrr", "/lp/adu", "/lp/stress", "/privacy", "/terms"] as const;
+export const PUBLIC_ROUTES = ["/", "/lp/rental", "/lp/comps", "/lp/brrrr", "/lp/adu", "/lp/stress", "/privacy", "/terms"] as const;
