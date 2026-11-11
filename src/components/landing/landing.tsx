@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/shell/brand";
 import { Disclaimer } from "@/components/common/disclaimer";
 import { cn } from "@/lib/utils";
+import { QuickRentalCalc } from "./quick-rental-calc";
 
 /* Figures in the mock-ups below are the app's own sample deals, labelled as examples. */
 
@@ -140,7 +141,9 @@ function RentalMock() {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">At a $189,000 price, 25% down plus closing costs. Every line is editable and shows its formula.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        At a $189,000 price, 25% down plus closing costs. Every line is editable and shows its formula.
+      </p>
     </Frame>
   );
 }
@@ -334,7 +337,7 @@ export type LandingAngle = (typeof FEATURES)[number]["id"];
 const HEROES: Record<LandingAngle, { title: string; body: string }> = {
   rental: {
     title: "Rental property calculator: cash flow, cap rate, cash-on-cash.",
-    body: "Type an address. Rent, taxes and comps fill in, every expense shows what it takes from the month — and DEALAN works out the highest price that still meets your goals.",
+    body: "Try the calculator right here — no sign-up. When a deal looks good, type its address: rent, taxes and comps fill in, and DEALAN works out the highest price that still meets your goals.",
   },
   "max-offer": {
     title: "Know your max offer before you call the agent.",
@@ -447,7 +450,7 @@ export function Landing({ angle = "max-offer" }: { angle?: LandingAngle }) {
             </div>
             <p className="mt-3 text-xs text-muted-foreground">Free during early access · No credit card · Your demo is private to you</p>
           </div>
-          {angle === "max-offer" ? <HeroMock /> : FEATURES.find((f) => f.id === angle)!.mock}
+          {angle === "max-offer" ? <HeroMock /> : angle === "rental" ? <QuickRentalCalc /> : FEATURES.find((f) => f.id === angle)!.mock}
         </section>
 
         {/* What's different */}
